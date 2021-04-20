@@ -3,73 +3,71 @@ from random import random
 
 from django.contrib.auth.models import User, Group
 from django.db.models import Sum
+from django.http import Http404
+from django.db.models import Empty
 from rest_framework import viewsets
 from rest_framework import permissions
 from rest_framework import request, status
 from rest_framework.response import Response
+from rest_framework.decorators import action
 from .serializer import *
 from .models import *
+from rest_framework import mixins
+from rest_framework import viewsets
 
 
-class UserViewSet(viewsets.ModelViewSet):
-    """
-    API endpoint that allows users to be viewed or edited.
-    """
-    queryset = User.objects.all().order_by('-date_joined')
-    serializer_class = UserSerializer
-    permission_classes = [permissions.IsAuthenticated]
+class RaceViewSet(mixins.ListModelMixin,
+                  mixins.RetrieveModelMixin,
+                  viewsets.GenericViewSet):
+    queryset = Race.objects.all()
+    serializer_class = RaceSerializer
 
 
-class GroupViewSet(viewsets.ModelViewSet):
-    """
-    API endpoint that allows groups to be viewed or edited.
-    """
-    queryset = Group.objects.all()
-    serializer_class = GroupSerializer
-    permission_classes = [permissions.IsAuthenticated]
+class TeamViewSet(mixins.ListModelMixin,
+                  mixins.RetrieveModelMixin,
+                  mixins.CreateModelMixin,
+                  mixins.DestroyModelMixin,
+                  mixins.UpdateModelMixin,
+                  viewsets.GenericViewSet):
+    queryset = Team.objects.all()
+    serializer_class = TeamSerializer
+
+    @action(detail=True, methods=['post'])
+    def joint_code(self, request, pk=None):
+        team = Team.objects.get(id=pk)
+        team.join_code = request.data['joint_code']
+        team.save()
+        return Response(TeamSerializer(team).data)
 
 
-# class SetNewRunner(request):
-#     # Manque le hash du mdp, à voir si ya pas un bail déjà dans django
-#     race = Race.objects.get(race_type=request.data.race_type)
-#     r = Runner(name=request.data.name,
-#                surname=request.data.surname,
-#                birthdate=request.data.birthdate,
-#                email=request.data.email,
-#                inside_team=request.data.inside_team,
-#                nickname=request.data.nickname,
-#                race=race)  # race.id plutôt ?
-#     r.save()
-#     Response(json.dumps({"message": "user created"}), status=status.HTTP_201_CREATED)
-#
-#
-# class SetTeamToRunner(request):
-#     r = Runner.objects.get(id=request.data.user_id)
-#     team = Team.objects.get(join_code=request.data.join_code)
-#     team.nb_runners += 1  # on incrémente le nb de runner dans la team
-#     r.team_name = team  # team.id plutôt ?
-#     r.save()
-#     team.save()
-#     Response(json.dumps({"message": "Team assigned"}), status=status.HTTP_200_OK)
-#
-#
-# class SetNewTeam(request):
-#     race = Race.objects.get(race_type=request.data.race_type)
-#     team_code = int(random() * 100000)
-#     t = Team(name=request.data.team_name,
-#              nb_runner=0,
-#              join_code=team_code,
-#              race=race)  # race.id plutôt ?
-#     t.save()
-#     Response(json.dumps({"message": "Team created", "join_code": team_code}), status=status.HTTP_201_CREATED)
-#
-#
-# class GetRunnerTotalPoints(request):
-#     km_sum = Activity.objects.aggregate(Sum('distance')).get(runner=request.data.runner_id)
-#     km_points = Race.objects.get(
-#         race_type=Runner.objects.get(id=request.data.runner_id).race_type).km_points  # à vérifier
-#     # coeff_deniv = Race.objects.get(race_type=Runner.objects.get(id=request.data.runner_id).race_type).elevation_gain_coeff  # à vérifier
-#
-#     points = km_sum * km_points  # Attention, manque dénivelé
-#
-#     Response(json.dumps({"total_points": points}), status=status.HTTP_200_OK)
+class RunnerViewSet(mixins.ListModelMixin,
+                    mixins.RetrieveModelMixin,
+                    mixins.CreateModelMixin,
+                    mixins.UpdateModelMixin,
+                    viewsets.GenericViewSet):
+    queryset = Runner.objects.all()
+    serializer_class = RunnerSerializer
+
+    @action(detail=True, methods=['post', 'delete'])
+    def team(self, request, pk=None):
+        team_id = request.data['team_id']
+        team = Team.objects.get(id=team_id)
+        if request.method == 'POST':
+            joint_code = request.data['joint_code']
+            if joint_code == team.join_code:
+                runner = Runner.objects.get(id=pk)
+                runner.team = team
+                runner.save()
+                return Response(RunnerSerializer(runner).data)
+            else:
+                return Http404("Wrong joint code")
+        elif request.method == 'DELETE':
+            runner = Runner.objects.get(id=pk)
+            runner.team = None
+            runner.save()
+            return Response(RunnerSerializer(runner).data)
+
+    # @action(detail=True, methods=['get', 'post'])
+    # def activites(self, requests, pk=None):
+    #     if resquests.method == 'GET':
+    #

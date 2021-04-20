@@ -4,8 +4,9 @@ from . import views
 
 
 router = routers.DefaultRouter()
-router.register(r'users', views.UserViewSet)
-router.register(r'groups', views.GroupViewSet)
+router.register(r'races', views.RaceViewSet)
+router.register(r'teams', views.TeamViewSet)
+router.register(r'runners', views.RunnerViewSet)
 
 # Wire up our API using automatic URL routing.
 # Additionally, we include login URLs for the browsable API.

@@ -4,7 +4,7 @@ from django.contrib.auth.models import User
 
 
 class Race(models.Model):
-    race_type = models.CharField(max_length=30)
+    type = models.CharField(max_length=30)
     duration = models.DurationField(default=timedelta(hours=24.0))
     km_points = models.FloatField(default=0)
     elevation_gain_coeff = models.FloatField(default=0)
@@ -20,9 +20,9 @@ class Team(models.Model):
 class Runner(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     strava_auth = models.JSONField(blank=True)
-    birthdate = models.DateField()
+    birthday = models.DateField()
     point = models.PositiveIntegerField(default=0, null=False, blank=False)
-    team_name = models.ForeignKey(Team, on_delete=models.CASCADE, blank=True)
+    team = models.ForeignKey(Team, on_delete=models.CASCADE, blank=True)
 
 
 class Activity(models.Model):

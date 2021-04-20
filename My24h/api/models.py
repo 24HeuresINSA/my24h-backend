@@ -10,6 +10,7 @@ class Race(models.Model):
 
 class Team(models.Model):
     team_name = models.CharField(max_length=50)
+    join_code = models.CharField(max_length=10)
     nb_runners = models.IntegerField()
     race_type = models.ForeignKey(Race, on_delete=models.CASCADE)
 
@@ -38,7 +39,7 @@ class Activity(models.Model):
     negative_elevation_gain = models.IntegerField()
     run_time = models.TimeField()
     avg_speed = models.FloatField()
-    activity_link = models.URLField()
+    activity_url = models.URLField()
 
 
 

@@ -1,14 +1,44 @@
 from django.contrib.auth.models import User, Group
 from rest_framework import serializers
+from .models import *
+
+
+class RaceSerializer(serializers.HyperlinkedModelSerializer):
+    type = serializers.CharField(read_only=True)
+    duration = serializers.DurationField(read_only=True)
+    km_points = serializers.FloatField(read_only=True)
+    elevation_gain_coeff = serializers.FloatField(read_only=True)
+
+
+class TeamSerializer(serializers.HyperlinkedModelSerializer):
+    name = serializers.CharField(required=True)
+    join_code = serializers.CharField(required=True)
+    nb_runner = serializers.ChoiceField(required=True, choices=[1, 4, 12])
+    race = RaceSerializer(many=False, read_only=True)
+
+    class Meta:
+        methode = Team
+        fields = ['url', 'name', 'join_code', 'nb_runner', 'race']
 
 
 class UserSerializer(serializers.HyperlinkedModelSerializer):
+    username = serializers.CharField(max_length=30, required=True)
+    first_name = serializers.CharField(max_length=30, required=True)
+    last_name = serializers.CharField(max_length=30, required=True)
+    email = serializers.CharField(max_length=30, required=True)
+    password = serializers.CharField(max_length=100, write_only=True)
+
     class Meta:
         model = User
-        fields = ['url', 'username', 'email', 'groups']
+        fields = ['url', 'username', 'first_name', 'last_name', 'email', 'password']
 
 
-class GroupSerializer(serializers.HyperlinkedModelSerializer):
+class RunnerSerializer(serializers.HyperlinkedModelSerializer):
+    user = UserSerializer(many=False)
+    birthday = serializers.DateField(required=True)
+    point = serializers.IntegerField(read_only=True)
+    team = TeamSerializer(many=False, write_only=True)
+
     class Meta:
-        model = Group
-        fields = ['url', 'name']
+        model = Runner
+        fields = ['url', 'user', 'birthdate', 'point', 'team']

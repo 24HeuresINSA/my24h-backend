@@ -1,0 +1,53 @@
+version: '3.7'
+
+services:
+
+  web:
+    build:
+      context: ./My24h
+      dockerfile: Dockerfile.prod
+    command: >
+      sh - c "python manage.py migrate &&
+              python manage.py w8_4_db &&
+              gunicorn my24h.wsgi:application --bind 0.0.0.0:8000"
+    volumes:
+      - static_volume:/home/My24h/web/staticfiles
+      - media_colume:/home/My24/web/mediafiles
+    expose:
+      - 8000
+    env_file:
+      - .env.prod
+    depends_on:
+      - db
+
+  db:
+    image: mariadb:10.0.19
+    volumes:
+      - mariadb_data:/var/lib/mysql/data/
+    ports:
+      - 3306:3306
+    env_file:
+      - .env.prod.db
+
+  adminer:
+    image: adminer
+    ports:
+      - 9000:9000
+
+  nginx:
+    build: ./nginx
+    volumes:
+      - static_volume:/home/My24h/web/staticfiles
+      - media_volume:/home/My24h/web/mediafiles
+    ports:
+      - 8080:80
+    depends_on:
+      - web
+
+
+volumes:
+  mariadb_data:
+  static_volume:
+  media_volume:
+
+

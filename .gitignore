@@ -1,2 +1,7 @@
 .idea
 migration/*
+My24h/db.sqlite3
+.env
+.env.db
+.env.prod
+.env.prod.db

@@ -1,6 +1,8 @@
 from django.contrib.auth.models import User, Group
 from rest_framework import serializers
 from .models import *
+from rest_framework_simplejwt.serializers import TokenObtainSerializer, TokenRefreshSerializer
+from rest_framework_simplejwt.tokens import RefreshToken
 
 
 class RaceSerializer(serializers.HyperlinkedModelSerializer):
@@ -12,6 +14,13 @@ class RaceSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = Race
         fields = ['url', 'type', 'duration', 'km_points', 'elevation_gain_coeff']
+
+
+class CategoryLightSerializer(serializers.HyperlinkedModelSerializer):
+
+    class Meta:
+        model = Category
+        fields = ['url', 'name']
 
 
 class TeamLightSerializer(serializers.HyperlinkedModelSerializer):
@@ -27,20 +36,21 @@ class RunnerLightSerializer(serializers.HyperlinkedModelSerializer):
     point = serializers.IntegerField(read_only=True)
 
     class Meta:
-        model = Runner
+        model = Racer
         fields = ['url', 'user', 'point']
 
 
 class TeamSerializer(serializers.HyperlinkedModelSerializer):
-    name = serializers.CharField(required=True)
-    join_code = serializers.CharField(required=True)
-    nb_runner = serializers.ChoiceField(required=True, choices=[1, 4, 12])
-    race = serializers.StringRelatedField(many=False, read_only=True)
-    runners = RunnerLightSerializer(many=True, read_only=True)
+    name = serializers.CharField()
+    join_code = serializers.CharField()
+    image = serializers.ImageField(required=False)
+    race = serializers.StringRelatedField(many=False)
+    racers = RunnerLightSerializer(many=True)
+    category = CategoryLightSerializer()
 
     class Meta:
         model = Team
-        fields = ['url', 'name', 'join_code', 'nb_runner', 'race', 'runners']
+        fields = ['url', 'name', 'join_code', 'racers', 'race', 'category']
 
 
 class UserSerializer(serializers.HyperlinkedModelSerializer):
@@ -55,13 +65,37 @@ class UserSerializer(serializers.HyperlinkedModelSerializer):
         fields = ['url', 'username', 'first_name', 'last_name', 'email', 'password']
 
 
-class RunnerSerializer(serializers.HyperlinkedModelSerializer):
+class RacerSerializer(serializers.HyperlinkedModelSerializer):
     user = UserSerializer(many=False)
-    birthday = serializers.DateField(required=True)
-    point = serializers.IntegerField(read_only=True)
+    image = serializers.ImageField()
     team = TeamLightSerializer(many=False, read_only=True)
 
     class Meta:
-        model = Runner
-        fields = ['url', 'user', 'birthday', 'point', 'team']
+        model = Racer
+        fields = ['url', 'user', 'image', 'birthday', 'team']
+
+
+class CategorySerializer(serializers.HyperlinkedModelSerializer):
+
+    class Meta:
+        model = Category
+        fields = ['url', 'name', 'nb_participants']
+
+
+class CustomTokenObtainPairSerializer(TokenObtainSerializer):
+
+    def validate(self, attrs):
+        data = super().validate(attrs)
+        refresh = self.get_token(self.user)
+        data['lifetime'] = int(refresh.access_token.lifetime.total_seconds())
+        return data
+
+class CustomTokenRefreshSerializer(TokenRefreshSerializer):
+
+    def validate(self, attrs):
+        data = super().validate(attrs)
+        refresh = RefreshToken(attrs['refresh'])
+        data['lifetime'] = int(refresh.access_token.lifetime.total_seconds)
+        return data
+
 

@@ -8,6 +8,10 @@ djangorestframework = "*"
 django = "*"
 requests = "*"
 drf-yasg = {extras = ["validation"], version = "*"}
+pillow = "*"
+mysqlclient = "*"
+gunicorn = "*"
+djangorestframework-simplejwt = "*"
 
 [dev-packages]
 

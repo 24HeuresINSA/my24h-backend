@@ -1,5 +1,5 @@
 .idea
-migration/*
+My24h/api/migrations/*
 My24h/db.sqlite3
 .env
 .env.db

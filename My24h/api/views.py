@@ -102,6 +102,7 @@ class AthleteViewSet(mixins.ListModelMixin,
 
     @action(detail=True, methods=['POST'], permission_classes=[IsAuthenticated])
     def strava(self, request, pk=None):
+        #TODO: à réparer
         if request.method == 'POST':
             user_id = request.user.id
             try:
@@ -110,7 +111,7 @@ class AthleteViewSet(mixins.ListModelMixin,
                 return HttpResponseNotFound(f"Racer with id {pk} not found.")
             athlete.strava_id = request.POST.get("strava_id")
             athlete.save()
-        return Response("Successfully updated")
+        return Response("Successfully updated/ En cours de réparation")
 
     @action(detail=True, methods=['GET'])
     def point(self, request, pk=None):
@@ -122,8 +123,8 @@ class AthleteViewSet(mixins.ListModelMixin,
 
     @action(detail=True, methods=['GET'])
     def strava_activities(self, request, pk=None):
+        #Todo: Réparation
         headers = {'Authorization': 'Bearer' + 'd43906d7756cf666c38faf6ee0f4935bdfdc0086'}
-
         try:
             response = requests.get(
                 url="",
@@ -132,6 +133,7 @@ class AthleteViewSet(mixins.ListModelMixin,
             racer = Athlete.objects.get(id=pk)
         except models.ObjectDoesNotExist:
             return HttpResponseNotFound(f"Racer with id {pk} not found")
+        return Response("En cours de réparation")
 
     @action(detail=True, methods=['GET', 'POST', 'DELETE'])
     def activites(self, request, pk=None):
@@ -147,7 +149,8 @@ class AthleteViewSet(mixins.ListModelMixin,
 
     @action(detail=True, methods=['GET'])
     def ranking(self, request, pk=None):
-        return Response("Ca arrive")
+        #Todo: reparation
+        return Response("En cours de réparation")
 
 
 class TeamViewSet(mixins.ListModelMixin,
@@ -339,7 +342,11 @@ class TeamViewSet(mixins.ListModelMixin,
 
     @action(detail=True, methods=["GET"])
     def ranking(self, request, pk=None):
+        #Todo: reparation
         teams = Team.objects.all()
+        serializer = TeamRankingSerializer(teams, many=True)
+        new_list = []
+        return Response("En cours de réparation")
 
 
 class TokenObtainPairView2(TokenObtainPairView):

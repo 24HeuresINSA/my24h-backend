@@ -84,6 +84,41 @@ class CategorySerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 
+class TeamRankingSerializer(serializers.ModelSerializer):
+    points = serializers.SerializerMethodField()
+    race = RaceSerializer()
+    category = CategoryLightSerializer()
+
+    def get_points(self, obj):
+        team = Team.objects.get(id=obj.pk)
+        team_activities = team.members.activities.all()
+        points = 0
+        for activity in team_activities:
+            points += activity.point
+        return points
+
+    class Meta:
+        model = Team
+        fields = ["id", "name", "race", "category", "points"]
+
+
+class AthleteRankingSerializer(serializers.ModelSerializer):
+    points = serializers.SerializerMethodField()
+
+    def get_points(self, obj):
+        athlete = Athlete.objects.get(id=obj.id)
+        activities = athlete.activities.all()
+        points = 0
+        for activity in activities:
+            points += activity.point
+        return points
+
+    class Meta:
+        model = Athlete
+        fields = ["id", "username", "points"]
+
+
+
 class CustomTokenObtainPairSerializer(TokenObtainSerializer):
 
     @classmethod

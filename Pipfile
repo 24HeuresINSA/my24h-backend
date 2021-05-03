@@ -12,6 +12,7 @@ pillow = "*"
 mysqlclient = "*"
 gunicorn = "*"
 djangorestframework-simplejwt = "*"
+django-cryptography = "*"
 
 [dev-packages]
 

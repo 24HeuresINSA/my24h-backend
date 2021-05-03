@@ -10,6 +10,7 @@ class Discipline(models.Model):
     name = models.CharField(max_length=30)
     points_per_km = models.FloatField(default=0)
     elevation_gain_coeff = models.FloatField(default=0)
+    duration_coeff = models.FloatField(default=0)
 
     class Meta:
         ordering = ["name"]
@@ -22,8 +23,6 @@ class Discipline(models.Model):
 
 class Race(models.Model):
     name = models.CharField(max_length=30)
-    duration = models.DurationField(default=timedelta(hours=24.0))
-    disciplines = models.ManyToManyField(Discipline, related_name="races")
 
     class Meta:
         ordering = ['name']
@@ -32,6 +31,18 @@ class Race(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class RaceDiscipline(models.Model):
+    race = models.ForeignKey(Race, on_delete=models.CASCADE)
+    discipline = models.ForeignKey(Discipline, on_delete=models.CASCADE)
+    duration = models.DurationField(default=timedelta(hours=24.0))
+
+    class Meta:
+        db_table = "api_race_discipline"
+
+    def __str__(self):
+        return f"{self.race.name}: {self.discipline.name} -> {self.duration}"
 
 
 class Category(models.Model):
@@ -67,10 +78,14 @@ class Team(models.Model):
 class Athlete(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     image = models.ImageField()
+    strava_id = models.IntegerField(unique=True)
     access_token = encrypt(models.CharField(max_length=800, null=True))
     access_token_expiration_date = encrypt(models.DateTimeField(null=True))
     refresh_token = encrypt(models.CharField(max_length=800, null=True))
+    last_update = models.DateTimeField()
     birthday = models.DateField()
+    race = models.ForeignKey(Race, default=None, null=True, related_name="race", on_delete=models.SET_NULL)
+    category = models.ForeignKey(Category, default=None, null=True, related_name="category", on_delete=models.SET_NULL)
     team = models.ForeignKey(Team, default=None, null=True, related_name="members", on_delete=models.SET_NULL)
     admin = models.ForeignKey(Team, default=None, null=True, related_name="admins", on_delete=models.SET_NULL)
 
@@ -93,9 +108,30 @@ class Activity(models.Model):
     negative_elevation_gain = models.PositiveIntegerField(blank=False, null=False)
     run_time = models.DurationField()
     avg_speed = models.FloatField()
-    point = models.IntegerField()
 
     class Meta:
         ordering = ["upload_date"]
         verbose_name = "Activity"
         verbose_name_plural = "Activities"
+
+
+class StravaActivity(models.Model):
+    id = models.IntegerField(primary_key=True)
+    name = models.CharField(max_length=500)
+    type = models.CharField(max_length=50)
+    distance = models.FloatField()
+    moving_time = models.DurationField()
+    total_elevation_gain = models.FloatField()
+    start_date = models.DateTimeField()
+    athlete = models.ForeignKey(Athlete, related_name="strava_activities", on_delete=models.CASCADE)
+
+    class Meta:
+        db_table = "api_strava_activity"
+        ordering = ["start_date"]
+        verbose_name = "Strava Activity"
+        verbose_name_plural = "Strava Activities"
+
+    def __str__(self):
+        return self.name
+
+

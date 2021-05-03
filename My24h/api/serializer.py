@@ -5,55 +5,57 @@ from rest_framework_simplejwt.serializers import TokenObtainSerializer, TokenRef
 from rest_framework_simplejwt.tokens import RefreshToken
 
 
-class RaceSerializer(serializers.HyperlinkedModelSerializer):
-    type = serializers.CharField(read_only=True)
-    duration = serializers.DurationField(read_only=True)
-    km_points = serializers.FloatField(read_only=True)
-    elevation_gain_coeff = serializers.FloatField(read_only=True)
+class DisciplineSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Discipline
+        fields = "__all__"
+
+
+class RaceSerializer(serializers.ModelSerializer):
+    disciplines = DisciplineSerializer(many=True)
 
     class Meta:
         model = Race
-        fields = ['url', 'type', 'duration', 'km_points', 'elevation_gain_coeff']
+        fields = ["name", "duration", "disciplines"]
 
 
-class CategoryLightSerializer(serializers.HyperlinkedModelSerializer):
+class CategoryLightSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Category
-        fields = ['url', 'name']
+        fields = ['id', 'name']
 
 
-class TeamLightSerializer(serializers.HyperlinkedModelSerializer):
-    name = serializers.CharField(required=True)
+class TeamLightSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Team
-        fields = ['url', 'name']
+        fields = ['id', 'name']
 
 
-class RunnerLightSerializer(serializers.HyperlinkedModelSerializer):
+class AthleteLightSerializer(serializers.ModelSerializer):
     user = serializers.SlugRelatedField(many=False, read_only=True, slug_field='username')
     point = serializers.IntegerField(read_only=True)
 
     class Meta:
-        model = Racer
-        fields = ['url', 'user', 'point']
+        model = Athlete
+        fields = ['id', 'user', 'point']
 
 
-class TeamSerializer(serializers.HyperlinkedModelSerializer):
+class TeamSerializer(serializers.ModelSerializer):
     name = serializers.CharField()
-    join_code = serializers.CharField()
-    image = serializers.ImageField(required=False)
     race = serializers.StringRelatedField(many=False)
-    racers = RunnerLightSerializer(many=True)
-    category = CategoryLightSerializer()
+    category = CategoryLightSerializer(many=False)
+    members = AthleteLightSerializer(many=True)
+    admins = AthleteLightSerializer(many=True)
 
     class Meta:
         model = Team
-        fields = ['url', 'name', 'join_code', 'racers', 'race', 'category']
+        fields = ['id', 'name', 'race', 'category', 'members', 'admins']
 
 
-class UserSerializer(serializers.HyperlinkedModelSerializer):
+class UserSerializer(serializers.ModelSerializer):
     username = serializers.CharField(max_length=30, required=True)
     first_name = serializers.CharField(max_length=30, required=True)
     last_name = serializers.CharField(max_length=30, required=True)
@@ -62,33 +64,40 @@ class UserSerializer(serializers.HyperlinkedModelSerializer):
 
     class Meta:
         model = User
-        fields = ['url', 'username', 'first_name', 'last_name', 'email', 'password']
+        fields = ['username', 'first_name', 'last_name', 'email', 'password']
 
 
-class RacerSerializer(serializers.HyperlinkedModelSerializer):
+class AthleteSerializer(serializers.ModelSerializer):
     user = UserSerializer(many=False)
     image = serializers.ImageField()
-    team = TeamLightSerializer(many=False, read_only=True)
+    team = TeamLightSerializer()
 
     class Meta:
-        model = Racer
-        fields = ['url', 'user', 'image', 'birthday', 'team']
+        model = Athlete
+        fields = ['id', 'user', 'image', 'birthday', 'team']
 
 
-class CategorySerializer(serializers.HyperlinkedModelSerializer):
+class CategorySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Category
-        fields = ['url', 'name', 'nb_participants']
+        fields = "__all__"
 
 
 class CustomTokenObtainPairSerializer(TokenObtainSerializer):
+
+    @classmethod
+    def get_token(cls, user):
+        token = super().get_token(user)
+        token['name'] = user.username
+        return token
 
     def validate(self, attrs):
         data = super().validate(attrs)
         refresh = self.get_token(self.user)
         data['lifetime'] = int(refresh.access_token.lifetime.total_seconds())
         return data
+    
 
 class CustomTokenRefreshSerializer(TokenRefreshSerializer):
 
@@ -97,5 +106,6 @@ class CustomTokenRefreshSerializer(TokenRefreshSerializer):
         refresh = RefreshToken(attrs['refresh'])
         data['lifetime'] = int(refresh.access_token.lifetime.total_seconds)
         return data
+
 
 

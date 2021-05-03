@@ -12,8 +12,8 @@ class RaceAdmin(admin.ModelAdmin):
     pass
 
 
-@admin.register(Racer)
-class RacerAdmin(admin.ModelAdmin):
+@admin.register(Athlete)
+class AthleteAdmin(admin.ModelAdmin):
     pass
 
 
@@ -24,4 +24,9 @@ class ActivityAdmin(admin.ModelAdmin):
 
 @admin.register(Team)
 class TeamAdmin(admin.ModelAdmin):
+    pass
+
+
+@admin.register(Discipline)
+class DisciplineAdmin(admin.ModelAdmin):
     pass

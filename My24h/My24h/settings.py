@@ -119,11 +119,11 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/3.2/howto/static-files/
 
-STATIC_URL = '/staticfiles/'
-STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
-
-MEDIA_URL = '/mediafiles'
-MEDIA_ROOT = os.path.join(BASE_DIR, "mediafiles")
+STATIC_URL = '/static/'
+STATIC_ROOT = '/static/'
+#
+# MEDIA_URL = '/mediafiles'
+# MEDIA_ROOT = os.path.join(BASE_DIR, "mediafiles")
 
 EMAIL_BACKEND = os.getenv("EMAIL_BACKEND")
 EMAIL_HOST = os.getenv("EMAIL_HOST")

@@ -34,8 +34,8 @@ class Race(models.Model):
 
 
 class RaceDiscipline(models.Model):
-    race = models.ForeignKey(Race, on_delete=models.CASCADE)
-    discipline = models.ForeignKey(Discipline, on_delete=models.CASCADE)
+    race = models.ForeignKey(Race, related_name="disciplines", on_delete=models.CASCADE)
+    discipline = models.ForeignKey(Discipline, related_name="races", on_delete=models.CASCADE)
     duration = models.DurationField(default=timedelta(hours=24.0))
 
     class Meta:

@@ -26,7 +26,7 @@ services:
     volumes:
       - static:/static/
     env_file:
-      - .env
+      - prod.env
     depends_on:
       - db
 
@@ -38,7 +38,7 @@ services:
     volumes:
       - mariadb_data:/var/lib/mysql/
     env_file:
-      - .env.db
+      - prod.db.env
 
   nginx:
     build: ./nginx

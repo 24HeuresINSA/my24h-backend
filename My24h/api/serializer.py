@@ -5,19 +5,18 @@ from rest_framework_simplejwt.serializers import TokenObtainSerializer, TokenRef
 from rest_framework_simplejwt.tokens import RefreshToken
 
 
-class DisciplineSerializer(serializers.ModelSerializer):
+""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+"""                                                        Light Serializers                                         """
+""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+
+
+class AthleteLightSerializer(serializers.ModelSerializer):
+    user = serializers.SlugRelatedField(many=False, read_only=True, slug_field='username')
+    point = serializers.IntegerField(read_only=True)
 
     class Meta:
-        model = Discipline
-        fields = "__all__"
-
-
-class RaceSerializer(serializers.ModelSerializer):
-    disciplines = DisciplineSerializer(many=True)
-
-    class Meta:
-        model = Race
-        fields = ["name", "duration", "disciplines"]
+        model = Athlete
+        fields = ['id', 'user', 'point']
 
 
 class CategoryLightSerializer(serializers.ModelSerializer):
@@ -34,13 +33,39 @@ class TeamLightSerializer(serializers.ModelSerializer):
         fields = ['id', 'name']
 
 
-class AthleteLightSerializer(serializers.ModelSerializer):
-    user = serializers.SlugRelatedField(many=False, read_only=True, slug_field='username')
-    point = serializers.IntegerField(read_only=True)
+""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+"""                                                        Serializers                                               """
+""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+
+
+class CategorySerializer(serializers.ModelSerializer):
 
     class Meta:
-        model = Athlete
-        fields = ['id', 'user', 'point']
+        model = Category
+        fields = "__all__"
+
+
+class DisciplineSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Discipline
+        fields = "__all__"
+
+
+class RaceDisciplineSerializer(serializers.ModelSerializer):
+    discipline = DisciplineSerializer()
+
+    class Meta:
+        model = RaceDiscipline
+        fields = ["discipline", "duration"]
+
+
+class RaceSerializer(serializers.ModelSerializer):
+    disciplines = RaceDisciplineSerializer(many=True)
+
+    class Meta:
+        model = Race
+        fields = ["id", "name", "disciplines"]
 
 
 class TeamSerializer(serializers.ModelSerializer):
@@ -71,17 +96,11 @@ class AthleteSerializer(serializers.ModelSerializer):
     user = UserSerializer(many=False)
     image = serializers.ImageField()
     team = TeamLightSerializer()
+    race = RaceSerializer()
 
     class Meta:
         model = Athlete
-        fields = ['id', 'user', 'image', 'birthday', 'team']
-
-
-class CategorySerializer(serializers.ModelSerializer):
-
-    class Meta:
-        model = Category
-        fields = "__all__"
+        fields = ['id', 'user', 'image', 'birthday', 'team', 'race']
 
 
 class TeamRankingSerializer(serializers.ModelSerializer):

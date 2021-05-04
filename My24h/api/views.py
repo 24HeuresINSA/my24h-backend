@@ -1,14 +1,18 @@
 import datetime
 import requests
+import os
+import time
 
 from .serializer import *
 from .models import *
 
 from django.http import *
+from django.db import IntegrityError
 from django.core.mail import send_mail
 from django.contrib.auth.models import User
 from django.contrib.auth.decorators import permission_required
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+from django.utils.timezone import now
 
 from rest_framework import mixins
 from rest_framework import viewsets
@@ -16,6 +20,8 @@ from rest_framework.decorators import action, permission_classes, authentication
 from rest_framework.response import Response
 from rest_framework.authentication import SessionAuthentication, BasicAuthentication
 from rest_framework.permissions import IsAuthenticated
+
+from rest_framework_simplejwt.tokens import RefreshToken
 
 from drf_yasg.utils import swagger_auto_schema
 
@@ -25,7 +31,6 @@ class CategoryViewSet(mixins.ListModelMixin,
                       viewsets.GenericViewSet):
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
-    permission_classes = [IsAuthenticated]
 
 
 class RaceViewSet(mixins.ListModelMixin,
@@ -33,12 +38,12 @@ class RaceViewSet(mixins.ListModelMixin,
                   viewsets.GenericViewSet):
     queryset = Race.objects.all()
     serializer_class = RaceSerializer
-    permission_classes = [IsAuthenticated]
 
 
 class AthleteViewSet(mixins.ListModelMixin,
                      mixins.RetrieveModelMixin,
                      mixins.CreateModelMixin,
+                     mixins.UpdateModelMixin,
                      viewsets.GenericViewSet):
     queryset = Athlete.objects.all()
     serializer_class = AthleteSerializer
@@ -55,33 +60,82 @@ class AthleteViewSet(mixins.ListModelMixin,
         return super(AthleteViewSet, self).list(request, *args, **kwargs)
 
     def create(self, request, *args, **kwargs):
-        #Todo Integrity error
+        # Todo Integrity error
         username = request.POST.get("username")
         first_name = request.POST.get("first_name")
         last_name = request.POST.get("last_name")
         email = request.POST.get("email")
         password = request.POST.get("password")
+        gender = request.POST.get("gender")
+        address = request.POST.get("address")
+        zip_code = request.POST.get("zip_code")
+        city = request.POST.get("city")
+        phone = request.POST.get("phone")
+        race_id = request.POST.get("race_id")
         try:
+            try:
+                race = Race.objects.get(id=race_id)
+            except models.ObjectDoesNotExist:
+                return HttpResponseBadRequest("Race does not exist.")
             birthday = datetime.datetime.strptime(request.POST.get("birthdate"), "%d-%m-%Y")
-            if username and first_name and last_name and email and password and birthday:
-                user = User.objects.create_user(
-                    username=username,
-                    email=email,
-                    password=password
-                )
-                user.first_name, user.last_name = first_name, last_name
-                user.is_staff = False
-                user.save()
-                athlete = Athlete.objects.create(
-                    user=user,
-                    birthday=birthday.date()
-                )
-                athlete.save()
-                return Response(AthleteSerializer(athlete).data)
+            if username and first_name and last_name and email and password and birthday and address and zip_code and city and gender:
+                try:
+                    user = User.objects.create_user(
+                        username=username,
+                        email=email,
+                        password=password
+                    )
+                    user.first_name, user.last_name = first_name, last_name
+                    user.is_staff = False
+                    user.save()
+                    athlete = Athlete.objects.create(
+                        user=user,
+                        gender=gender,
+                        birthday=birthday.date(),
+                        address=address,
+                        zip_code=zip_code,
+                        city=city,
+                        phone=phone,
+                        race=race
+                    )
+                    athlete.save()
+                    refresh = RefreshToken(user)
+                    return Response({
+                        "id": athlete.id,
+                        "access": str(refresh.access_token),
+                        "refresh": str(refresh)
+                    })
+                except IntegrityError as e:
+                    print(e)
+                    return HttpResponseBadRequest("Username is already used.")
             else:
                 return HttpResponseBadRequest("One or more parameters are missing.")
         except TypeError:
             return HttpResponseBadRequest("Birthdate should be in dd-mm-YYYY format.")
+
+    def update(self, request, *args, **kwargs):
+        phone = request.POST.get("phone")
+        email = request.POST.get("email")
+        address = request.POST.get("address")
+        zip_code = request.POST.get("zip_code")
+        city = request.POST.get("city")
+        try:
+            athlete = Athlete.objects.get(id=kwargs["pk"])
+            if phone:
+                athlete.phone = phone
+            if email:
+                athlete.user.email = email
+                athlete.user.save()
+            if address:
+                athlete.address = address
+            if zip_code:
+                athlete.zip_code = zip_code
+            if city:
+                athlete.city = city
+            athlete.save()
+            return Response(AthleteSerializer(athlete).data)
+        except models.ObjectDoesNotExist:
+            return HttpResponseNotFound("Athlete not found")
 
     @swagger_auto_schema(method='GET',
                          operation_id='Get profile picture',
@@ -102,16 +156,30 @@ class AthleteViewSet(mixins.ListModelMixin,
 
     @action(detail=True, methods=['POST'], permission_classes=[IsAuthenticated])
     def strava(self, request, pk=None):
-        #TODO: à réparer
-        if request.method == 'POST':
-            user_id = request.user.id
-            try:
+        authorization_code = request.POST.get("authorization_code")
+        if authorization_code:
+            data = {
+                "client_id": os.getenv("CLIENT_ID"),
+                "client_secret": os.getenv("CLIENT_SECRET"),
+                "code": authorization_code,
+                "grant": "authorization_code"
+            }
+            response = requests.post(
+                url="https://www.strava.com/oauth/token",
+                data=data
+            )
+            if response.status_code < 300:
+                user_id = request.user.id
                 athlete = Athlete.objects.get(user__id=user_id)
-            except models.ObjectDoesNotExist:
-                return HttpResponseNotFound(f"Racer with id {pk} not found.")
-            athlete.strava_id = request.POST.get("strava_id")
-            athlete.save()
-        return Response("Successfully updated/ En cours de réparation")
+                data = response.json()
+                athlete.access_token = data.get("access_token")
+                athlete.access_token_expiration_date = datetime.datetime.fromtimestamp(data.get("expires_at"))
+                athlete.refresh_token = data.get("refresh_token")
+                athlete.strava_id = data.get("athlete").get("id")
+                athlete.save()
+                return Response("Successfully updated/ En cours de réparation")
+            return HttpResponseServerError
+        return HttpResponseBadRequest
 
     @action(detail=True, methods=['GET'])
     def point(self, request, pk=None):
@@ -123,17 +191,44 @@ class AthleteViewSet(mixins.ListModelMixin,
 
     @action(detail=True, methods=['GET'])
     def strava_activities(self, request, pk=None):
-        #Todo: Réparation
-        headers = {'Authorization': 'Bearer' + 'd43906d7756cf666c38faf6ee0f4935bdfdc0086'}
+
+        user_id = request.user.id
         try:
-            response = requests.get(
-                url="",
-                headers=headers
-            )
-            racer = Athlete.objects.get(id=pk)
+            athlete = Athlete.objects.get(user__id=user_id)
         except models.ObjectDoesNotExist:
-            return HttpResponseNotFound(f"Racer with id {pk} not found")
-        return Response("En cours de réparation")
+            return HttpResponseForbidden
+        if time.time() > athlete.last_update.time():
+            if time.time() > athlete.access_token_expiration_date:
+                refresh_token(athlete)
+            headers = {'Authorization': 'Bearer ' + athlete.access_token}
+            try:
+                params = {
+                    "per_page": 30,
+                    "before": 1619179200,
+                    "after": 1618401600,
+                }
+                response = requests.get(
+                    url="https://www.strava.com/api/v3/athlete/activities",
+                    headers=headers,
+                    params=params
+                )
+                if response.status_code == 200:
+                    athlete.last_update = now()
+                    activities = response.json()
+                    for activity in activities:
+                         StravaActivity.objects.create(
+                            id=activity.get("id"),
+                            name=activity.get("name"),
+                            type=activity.get("type"),
+                            distance=activity.get("distance"),
+                            moving_time=activity.get("moving_time"),
+                            total_elevation_gain=activity.get("total_elevation_gain"),
+                            start_date=datetime.datetime.strptime(activity.get("start_date_local"), "%Y-%m-%dT%H:%M:%SZ"),
+                            athlete=athlete
+                        )
+            except models.ObjectDoesNotExist:
+                return HttpResponseNotFound(f"Athlete {pk} not found")
+        return Response("Todo")
 
     @action(detail=True, methods=['GET', 'POST', 'DELETE'])
     def activites(self, request, pk=None):
@@ -149,7 +244,7 @@ class AthleteViewSet(mixins.ListModelMixin,
 
     @action(detail=True, methods=['GET'])
     def ranking(self, request, pk=None):
-        #Todo: reparation
+        # Todo: reparation
         return Response("En cours de réparation")
 
 
@@ -342,7 +437,7 @@ class TeamViewSet(mixins.ListModelMixin,
 
     @action(detail=True, methods=["GET"])
     def ranking(self, request, pk=None):
-        #Todo: reparation
+        # Todo: reparation
         teams = Team.objects.all()
         serializer = TeamRankingSerializer(teams, many=True)
         new_list = []
@@ -355,3 +450,23 @@ class TokenObtainPairView2(TokenObtainPairView):
 
 class TokenRefreshView2(TokenRefreshView):
     serializer_class = CustomTokenRefreshSerializer
+
+
+def refresh_token(athlete: Athlete):
+    data = {
+        "client_id": os.getenv("CLIENT_ID"),
+        "client_secret": os.getenv("CLIENT_SECRET"),
+        "grant": "refresh_token",
+        "refresh": athlete.refresh_token
+    }
+    response = requests.get(
+        url="https://www.strava.com/api/v3/oauth/token",
+        data=data
+    )
+    if response.status_code == 200:
+        data = response.json()
+        athlete.access_token = data.get("access_token")
+        athlete.access_token_expiration_date = datetime.datetime.fromtimestamp(data.get("expires_at"))
+        athlete.refresh_token = data.get("refresh_token")
+        athlete.strava_id = data.get("athlete").get("id")
+        athlete.save()

@@ -77,13 +77,18 @@ class Team(models.Model):
 
 class Athlete(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
-    image = models.ImageField()
-    strava_id = models.IntegerField(unique=True)
+    gender = models.CharField(max_length=20, choices=[('male', "male"), ('female', "female"), ('unknown', "unknown")])
+    birthday = models.DateField()
+    address = models.CharField(max_length=100, null=True)
+    zip_code = models.CharField(max_length=5, null=True)
+    city = models.CharField(max_length=100, null=True)
+    phone = models.CharField(max_length=20, null=True)
+    image = models.ImageField(null=True)
+    strava_id = models.IntegerField(null=True)
     access_token = encrypt(models.CharField(max_length=800, null=True))
     access_token_expiration_date = encrypt(models.DateTimeField(null=True))
     refresh_token = encrypt(models.CharField(max_length=800, null=True))
-    last_update = models.DateTimeField()
-    birthday = models.DateField()
+    last_update = models.DateTimeField(null=True)
     race = models.ForeignKey(Race, default=None, null=True, related_name="race", on_delete=models.SET_NULL)
     category = models.ForeignKey(Category, default=None, null=True, related_name="category", on_delete=models.SET_NULL)
     team = models.ForeignKey(Team, default=None, null=True, related_name="members", on_delete=models.SET_NULL)
@@ -133,5 +138,3 @@ class StravaActivity(models.Model):
 
     def __str__(self):
         return self.name
-
-

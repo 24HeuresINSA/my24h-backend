@@ -8,10 +8,12 @@ from .models import *
 
 from django.http import *
 from django.db import IntegrityError
+from django.contrib.auth import authenticate
 from django.core.mail import send_mail
 from django.contrib.auth.models import User
+from rest_framework.decorators import api_view
 from django.contrib.auth.decorators import permission_required
-from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+from rest_framework_simplejwt.tokens import RefreshToken
 from django.utils.timezone import now
 
 from rest_framework import mixins
@@ -48,9 +50,10 @@ class AthleteViewSet(mixins.ListModelMixin,
                      viewsets.GenericViewSet):
     queryset = Athlete.objects.all()
     serializer_class = AthleteSerializer
+    permission_classes = [AllowAny]
 
     def get_permissions(self):
-        if self.action == 'create' :
+        if self.action == 'create':
             permission_classes = [AllowAny]
         else:
             permission_classes = [IsAuthenticated]
@@ -73,12 +76,13 @@ class AthleteViewSet(mixins.ListModelMixin,
         city = request.POST.get("city")
         phone = request.POST.get("phone")
         race_id = request.POST.get("race_id")
+        print(race_id)
         try:
             try:
                 race = Race.objects.get(id=race_id)
             except models.ObjectDoesNotExist as e:
                 print(e)
-                return HttpResponseBadRequest("Race does not exist.")
+                return HttpResponseBadRequest(f"Race {race_id} does not exist.")
             birthday = datetime.datetime.strptime(request.POST.get("birthdate"), "%d-%m-%Y")
             if username and first_name and last_name and email and password and birthday and address and zip_code and city and gender:
                 try:
@@ -101,7 +105,7 @@ class AthleteViewSet(mixins.ListModelMixin,
                         race=race
                     )
                     athlete.save()
-                    refresh = RefreshToken(user)
+                    refresh = RefreshToken.for_user(user)
                     return Response({
                         "id": athlete.id,
                         "access": str(refresh.access_token),
@@ -201,7 +205,7 @@ class AthleteViewSet(mixins.ListModelMixin,
             return HttpResponseForbidden
         if time.time() > athlete.last_update.time():
             if time.time() > athlete.access_token_expiration_date:
-                refresh_token(athlete)
+                refresh_strava_token(athlete)
             headers = {'Authorization': 'Bearer ' + athlete.access_token}
             try:
                 params = {
@@ -446,15 +450,42 @@ class TeamViewSet(mixins.ListModelMixin,
         return Response("En cours de réparation")
 
 
-class TokenObtainPairView2(TokenObtainPairView):
-    serializer_class = CustomTokenObtainPairSerializer
+@permission_classes([AllowAny])
+@api_view(['POST'])
+def access_token(request):
+    username = request.POST.get("username")
+    password = request.POST.get("password")
+    if request.method == 'POST':
+        user = authenticate(username=username, password=password)
+        if user:
+            if Athlete.objects.filter(user=user).exists():
+                athlete = Athlete.objects.get(user=user)
+                refresh = RefreshToken.for_user(user)
+                return Response(
+                    {
+                        "id": athlete.id,
+                        "access": str(refresh.access_token),
+                        "refresh": str(refresh)
+                    }
+                )
+    return HttpResponseBadRequest
+
+@permission_classes([AllowAny])
+@api_view(['POST'])
+def refresh_tocken(request):
+    refresh = request.POST.get("refresh")
+    if refresh:
+        refresh_token = RefreshToken(refresh)
+        return Response(
+            {
+                "access": str(refresh_token.access_token),
+                "refresh": str(refresh_token)
+            }
+        )
+    return HttpResponseBadRequest
 
 
-class TokenRefreshView2(TokenRefreshView):
-    serializer_class = CustomTokenRefreshSerializer
-
-
-def refresh_token(athlete: Athlete):
+def refresh_strava_token(athlete: Athlete):
     data = {
         "client_id": os.getenv("CLIENT_ID"),
         "client_secret": os.getenv("CLIENT_SECRET"),

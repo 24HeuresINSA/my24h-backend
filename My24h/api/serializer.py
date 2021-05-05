@@ -100,7 +100,7 @@ class AthleteSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Athlete
-        fields = ['id', 'user', 'image', 'birthday', 'team', 'race']
+        fields = ['id', 'user', 'image', 'birthday', 'team', 'strava_id', 'race']
 
 
 class TeamRankingSerializer(serializers.ModelSerializer):

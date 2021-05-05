@@ -13,6 +13,7 @@ mysqlclient = "*"
 gunicorn = "*"
 djangorestframework-simplejwt = "*"
 django-cryptography = "*"
+sentry-sdk = "*"
 
 [dev-packages]
 

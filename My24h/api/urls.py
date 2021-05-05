@@ -17,8 +17,8 @@ router.register(r'teams', views.TeamViewSet, basename="Teams")
 urlpatterns = [
     path('', include(router.urls)),
     path('api-auth/', include('rest_framework.urls', namespace='rest_framework')),
-    path('token/', jwt_views.TokenObtainPairView.as_view(), name="token"),
-    path('token/refresh/', jwt_views.TokenRefreshView.as_view(), name="refresh token"),
+    path('token/', views.access_token, name="token"),
+    path('token/refresh/', views.refresh_tocken, name="refresh token"),
     path('reset_password', auth_views.PasswordResetView.as_view()),
     path('rest_password/done', auth_views.PasswordResetDoneView.as_view()),
     path('password/<uidb64>/<token>', auth_views.PasswordResetConfirmView.as_view()),

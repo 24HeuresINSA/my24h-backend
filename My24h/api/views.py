@@ -76,7 +76,8 @@ class AthleteViewSet(mixins.ListModelMixin,
         try:
             try:
                 race = Race.objects.get(id=race_id)
-            except models.ObjectDoesNotExist:
+            except models.ObjectDoesNotExist as e:
+                print(e)
                 return HttpResponseBadRequest("Race does not exist.")
             birthday = datetime.datetime.strptime(request.POST.get("birthdate"), "%d-%m-%Y")
             if username and first_name and last_name and email and password and birthday and address and zip_code and city and gender:

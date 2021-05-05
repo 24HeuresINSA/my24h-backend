@@ -30,3 +30,7 @@ class TeamAdmin(admin.ModelAdmin):
 @admin.register(Discipline)
 class DisciplineAdmin(admin.ModelAdmin):
     pass
+
+@admin.register(RaceDiscipline)
+class RaceDisciplineAdmin(admin.ModelAdmin):
+    pass

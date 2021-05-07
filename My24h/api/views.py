@@ -83,7 +83,7 @@ class AthleteViewSet(mixins.ListModelMixin,
             except models.ObjectDoesNotExist as e:
                 print(e)
                 return HttpResponseBadRequest(f"Race {race_id} does not exist.")
-            birthday = datetime.datetime.strptime(request.POST.get("birthdate"), "%d-%m-%Y")
+            birthday = datetime.datetime.strptime(request.POST.get("birthdate"), "%Y-%m-%d")
             if username and first_name and last_name and email and password and birthday and address and zip_code and city and gender:
                 try:
                     user = User.objects.create_user(

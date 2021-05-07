@@ -181,5 +181,5 @@ sentry_sdk.init(
 )
 
 CORS_ALLOWED_ORIGINS = [
-    "http://my24h.24heures.org"
+    "https://my24h.24heures.org"
 ]

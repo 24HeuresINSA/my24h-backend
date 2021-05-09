@@ -449,9 +449,8 @@ class TeamViewSet(mixins.ListModelMixin,
         new_list = []
         return Response("En cours de réparation")
 
-
-@permission_classes([AllowAny])
 @api_view(['POST'])
+@permission_classes([AllowAny])
 def access_token(request):
     username = request.POST.get("username")
     password = request.POST.get("password")
@@ -470,8 +469,8 @@ def access_token(request):
                 )
     return HttpResponseBadRequest
 
-@permission_classes([AllowAny])
 @api_view(['POST'])
+@permission_classes([AllowAny])
 def refresh_tocken(request):
     refresh = request.POST.get("refresh")
     if refresh:

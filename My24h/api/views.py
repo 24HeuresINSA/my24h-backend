@@ -327,13 +327,13 @@ class TeamViewSet(mixins.ListModelMixin,
                 return HttpResponseBadRequest(f"Athlete with id {athlete.id} does not have enough rights.")
         return HttpResponseBadRequest(f"Athlete must be an admin of the team to change join code")
 
-    @action(detail=True, methods=['GET', 'DELETE'])
+    @action(detail=True, methods=['GET', 'POST'])
     def members(self, request, pk=None):
         try:
             team = Team.objects.get(id=pk)
         except models.ObjectDoesNotExist:
             return HttpResponseNotFound(f"Team with id {pk} not found.")
-        if request.method == "DELETE":
+        if request.method == "POST":
             user_id = request.user.id
             try:
                 admin = Athlete.objects.get(user__id=user_id)

@@ -400,7 +400,7 @@ class AthleteViewSet(mixins.ListModelMixin,
                 activity.delete()
                 return Response(status=204, data={"succ": "Activity Deleted"})
             return False
-        return Response(ActivitySerializer(Activity.objects.filter(athlete=Athlete.objects.get(user__id=request.user.id))))
+        return Response(ActivitySerializer(Activity.objects.filter(athlete=Athlete.objects.get(user__id=request.user.id))).data)
 
 
     @action(detail=True, methods=['GET'])

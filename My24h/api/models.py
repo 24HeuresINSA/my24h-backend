@@ -110,9 +110,9 @@ class Activity(models.Model):
     upload_date = models.DateTimeField(default=timezone.now)
     distance = models.FloatField(blank=False, null=False)
     positive_elevation_gain = models.PositiveIntegerField(blank=False, null=False)
-    negative_elevation_gain = models.PositiveIntegerField(blank=False, null=False)
+    discipline = models.ForeignKey(Discipline, blank=True, on_delete=models.CASCADE, related_name="activities")
     run_time = models.DurationField()
-    avg_speed = models.FloatField()
+    avg_speed = models.FloatField(blank=True)
 
     class Meta:
         ordering = ["upload_date"]

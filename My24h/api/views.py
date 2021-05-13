@@ -3,24 +3,23 @@ import requests
 import os
 import time
 
+from itertools import chain
+
 from .serializer import *
 from .models import *
 
 from django.http import *
 from django.db import IntegrityError
 from django.contrib.auth import authenticate
-from django.core.mail import send_mail
 from django.contrib.auth.models import User
 from rest_framework.decorators import api_view
-from django.contrib.auth.decorators import permission_required
-from rest_framework_simplejwt.tokens import RefreshToken
+
 from django.utils.timezone import now
 
 from rest_framework import mixins
 from rest_framework import viewsets
-from rest_framework.decorators import action, permission_classes, authentication_classes
+from rest_framework.decorators import action, permission_classes
 from rest_framework.response import Response
-from rest_framework.authentication import SessionAuthentication, BasicAuthentication
 from rest_framework.permissions import IsAuthenticated, AllowAny
 
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -208,11 +207,16 @@ class AthleteViewSet(mixins.ListModelMixin,
                 refresh_strava_token(athlete)
             headers = {'Authorization': 'Bearer ' + athlete.access_token}
             try:
-                params = {
-                    "per_page": 30,
-                    "before": 1619179200,
-                    "after": 1618401600,
-                }
+                if "pintade" in athlete.user.username:
+                    params = {
+                        "per_page": 30,
+                    }
+                else:
+                    params = {
+                        "per_page": 30,
+                        "before": 1619179200,
+                        "after": 1618401600,
+                    }
                 response = requests.get(
                     url="https://www.strava.com/api/v3/athlete/activities",
                     headers=headers,
@@ -222,14 +226,15 @@ class AthleteViewSet(mixins.ListModelMixin,
                     athlete.last_update = now()
                     activities = response.json()
                     for activity in activities:
-                         StravaActivity.objects.create(
+                        StravaActivity.objects.create(
                             id=activity.get("id"),
                             name=activity.get("name"),
                             type=activity.get("type"),
                             distance=activity.get("distance"),
                             moving_time=activity.get("moving_time"),
                             total_elevation_gain=activity.get("total_elevation_gain"),
-                            start_date=datetime.datetime.strptime(activity.get("start_date_local"), "%Y-%m-%dT%H:%M:%SZ"),
+                            start_date=datetime.datetime.strptime(activity.get("start_date_local"),
+                                                                  "%Y-%m-%dT%H:%M:%SZ"),
                             athlete=athlete
                         )
             except models.ObjectDoesNotExist:
@@ -239,12 +244,56 @@ class AthleteViewSet(mixins.ListModelMixin,
     @action(detail=True, methods=['GET', 'POST', 'DELETE'])
     def activites(self, request, pk=None):
         try:
-            racer = Athlete.objects.get(id=pk)
+            athletes = Athlete.objects.get(id=pk)
         except models.ObjectDoesNotExist:
             return HttpResponseNotFound(f"Racer with id {pk} not found")
         if request.method == 'POST':
-            return True
+            strava_activity_id = request.POST.get("strava_activity_id")
+            try:
+                strava_activity = StravaActivity.objects.get(strava_activity_id)
+            except models.ObjectDoesNotExist as e:
+                print(e)
+                return Response(status=404, data={f"Strava activity {strava_activity} not found"})
+            try:
+                athlete = Athlete.objects.get(user__id=request.user.id)
+            except models.ObjectDoesNotExist as e:
+                print(e)
+                return HttpResponseServerError
+            if strava_activity.athlete == athlete:
+                if strava_activity.type == "Hike" or "Walk" or "Run":
+                    discipline = Discipline.objects.get()
+                elif strava_activity.type == "Ride":
+                    discipline = Discipline.objects.get()
+                else:
+                    return HttpResponseBadRequest
+                activity = Activity.objects.create(
+                    activity_id=strava_activity.id,
+                    athlete=Athlete.objects.get(user__id=request.user.id),
+                    date=strava_activity.start_date,
+                    distance=strava_activity.distance,
+                    positive_elevation_gain = strava_activity.total_elevation_gain,
+                    discipline=discipline,
+                    run_time=strava_activity.moving_time
+                )
+                return Response()
+            else:
+                return Response("Tentative de filouterie")
         elif request.method == 'DELETE':
+            activity_id = request.POST.get("activity_id")
+            user_id = request.user.id
+            try:
+                activity = Activity.objects.get(activity_id)
+            except models.ObjectDoesNotExist as e:
+                print(e)
+                return Response(status=404, data={"err": f"Activity {activity_id} not found"})
+            try:
+                athlete = Athlete.objects.get(user__id=user_id)
+            except models.ObjectDoesNotExist as e:
+                print(e)
+                return HttpResponseServerError
+            if activity.athlete == athlete:
+                activity.delete()
+                return Response(status=204, data={"succ": "Activity Deleted"})
             return False
         return Response()
 
@@ -442,12 +491,69 @@ class TeamViewSet(mixins.ListModelMixin,
             return HttpResponseNotFound(f"Racer with id {request.POST.get('id')}")
 
     @action(detail=True, methods=["GET"])
-    def ranking(self, request, pk=None):
-        # Todo: reparation
-        teams = Team.objects.all()
-        serializer = TeamRankingSerializer(teams, many=True)
-        new_list = []
-        return Response("En cours de réparation")
+    def ranking(self, request):
+        race_id = request.POST.get("race_id")
+        try:
+            race = Race.objects.get(race_id)
+        except models.ObjectDoesNotExist as e:
+            return Response(status=404, data={"err": f"Race {race_id} not found"})
+        teams = Team.objects.filter(race=race)
+        teams_serializers = {}
+        for team in teams:
+            activities = None
+            athletes = team.members.all()
+            for athlete in athletes:
+                activities_athlete = athlete.activities.all()
+                activities = list(chain(activities, activities_athlete))
+            race = team.race
+            race_disciplines = RaceDiscipline.objects.filter(race)
+            team_serializer = {}
+            for race_discipline in race_disciplines:
+                discipline_activities = None
+                for activity in activities:
+                    if activity.discipline == race_discipline.discipline:
+                        discipline_activities = list(chain(discipline_activities, activity))
+                dict_activities = []
+                for discipline_activity in discipline_activities:
+                    dict_activities.append((discipline_activity,
+                                            discipline_activity.distance / discipline_activity.run_time.total_seconds()))
+                sorted_dict = sorted(dict_activities, key=lambda tup: tup[1])
+                points = 0
+                duration = 0
+                saved_activities = []
+                for elem in sorted_dict:
+                    if duration < race_discipline.duration.total_seconds():
+                        if duration + elem[0].run_time.total_seconds() > race_discipline.duration.total_seconds():
+                            temp = race_discipline.duration.total_seconds() - duration
+                            activity_duration = elem[0].run_time.total_seconds()
+                            activity_distance = elem[0].distance
+                            duration = race_discipline.duration.total_seconds()
+                            points += (
+                                                  temp * activity_distance / activity_duration) * race_discipline.discipline.points_per_km
+                            saved_activities.append(elem[0].id)
+                            break
+                        else:
+                            duration += elem[0].run_time.total_seconds()
+                            points += (elem[0].distance * race_discipline.discipline.points_per_km)
+                            saved_activities.append(elem[0].id)
+
+                team_serializer[race_discipline.discipline.name] = {
+                    "points": points,
+                    "activities": saved_activities,
+                    "duration": duration
+                }
+            total_points = 0
+            for key, value in team_serializer.items():
+                total_points += value["points"]
+            teams_serializers[team.id] = {
+                "total_points": total_points,
+                "details": team_serializer,
+            }
+        final_serializer = {k: v for k, v in sorted(teams_serializers.items(), key=lambda item: item[1]["total_points"])}
+        print(final_serializer)
+        return Response(data=final_serializer)
+
+
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
@@ -468,6 +574,7 @@ def access_token(request):
                     }
                 )
     return HttpResponseBadRequest
+
 
 @api_view(['POST'])
 @permission_classes([AllowAny])

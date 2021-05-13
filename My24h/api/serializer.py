@@ -4,7 +4,6 @@ from .models import *
 from rest_framework_simplejwt.serializers import TokenObtainSerializer, TokenRefreshSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 
-
 """"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 """                                                        Light Serializers                                         """
 """"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
@@ -20,14 +19,12 @@ class AthleteLightSerializer(serializers.ModelSerializer):
 
 
 class CategoryLightSerializer(serializers.ModelSerializer):
-
     class Meta:
         model = Category
         fields = ['id', 'name']
 
 
 class TeamLightSerializer(serializers.ModelSerializer):
-
     class Meta:
         model = Team
         fields = ['id', 'name']
@@ -39,14 +36,12 @@ class TeamLightSerializer(serializers.ModelSerializer):
 
 
 class CategorySerializer(serializers.ModelSerializer):
-
     class Meta:
         model = Category
         fields = "__all__"
 
 
 class DisciplineSerializer(serializers.ModelSerializer):
-
     class Meta:
         model = Discipline
         fields = "__all__"
@@ -60,6 +55,12 @@ class RaceDisciplineSerializer(serializers.ModelSerializer):
         fields = ["discipline", "duration"]
 
 
+class RaceLightSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Race
+        fields = ["id", "name"]
+
+
 class RaceSerializer(serializers.ModelSerializer):
     disciplines = RaceDisciplineSerializer(many=True)
 
@@ -70,7 +71,7 @@ class RaceSerializer(serializers.ModelSerializer):
 
 class TeamSerializer(serializers.ModelSerializer):
     name = serializers.CharField()
-    race = serializers.StringRelatedField(many=False)
+    race = RaceLightSerializer(many=False)
     category = CategoryLightSerializer(many=False)
     members = AthleteLightSerializer(many=True)
     admins = AthleteLightSerializer(many=True)
@@ -100,7 +101,8 @@ class AthleteSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Athlete
-        fields = ['id', 'user', 'image', 'birthday', 'address', 'zip_code', 'city', 'phone',  'team', 'strava_id', 'race']
+        fields = ['id', 'user', 'image', 'birthday', 'address', 'zip_code', 'city', 'phone', 'team', 'strava_id',
+                  'race']
 
 
 class TeamRankingSerializer(serializers.ModelSerializer):
@@ -137,7 +139,6 @@ class AthleteRankingSerializer(serializers.ModelSerializer):
         fields = ["id", "username", "points"]
 
 
-
 class CustomTokenObtainPairSerializer(TokenObtainSerializer):
 
     @classmethod
@@ -151,7 +152,7 @@ class CustomTokenObtainPairSerializer(TokenObtainSerializer):
         refresh = self.get_token(self.user)
         data['lifetime'] = int(refresh.access_token.lifetime.total_seconds())
         return data
-    
+
 
 class CustomTokenRefreshSerializer(TokenRefreshSerializer):
 
@@ -163,17 +164,12 @@ class CustomTokenRefreshSerializer(TokenRefreshSerializer):
 
 
 class StravaActivitySerializer(serializers.ModelSerializer):
-
     class Meta:
         model = StravaActivity
         fields = "__all__"
 
 
 class ActivitySerializer(serializers.ModelSerializer):
-
     class Meta:
         model = Activity
         fields = "__all__"
-
-
-

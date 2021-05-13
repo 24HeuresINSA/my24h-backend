@@ -211,18 +211,53 @@ class AthleteViewSet(mixins.ListModelMixin,
         except models.ObjectDoesNotExist as e:
             print(e)
             return Response(status=400, data={"err": f"Athlete {user_id} not found."})
-        activities = Activity.objects.filter(athlete=athlete)
-        total_km = 0
-        avg_speed = 0
-        total_time = 0
-        total_elevation = 0
-        record_distance = 0
-        record_time = 0
-        record_elevation = 0
-        record_avg_speed = 0
-        points = 0
-        nb_strava_activities = 0
-        return Response("Hello")
+
+        if athlete.team is None:
+            race = athlete.race
+        else:
+            race = athlete.team.race
+        response = {}
+        for discipline in race.disciplines:
+            total_km = 0
+            avg_speed = 0
+            total_time = 0
+            total_elevation = 0
+            record_distance = 0
+            record_time = 0
+            record_elevation = 0
+            record_avg_speed = 0
+            points = 0
+            discip = discipline.discipline
+            activities = Activity.objects.filter(athlete=athlete, discipline=discip)
+            i = 0
+            for activity in activities:
+                total_km += activity.distance
+                total_elevation += activity.positive_elevation_gain
+                total_time += activity.run_time.time_seconds()
+                avg_speed = (avg_speed*i +activity.avg_speed)/(i+1)
+                if activity.distance > record_distance:
+                    record_distance = activity.distance
+                if activity.run_time.time_seconds() > record_time:
+                    record_time = activity.run_time.time_seconds()
+                if activity.positive_elevation_gain > record_elevation:
+                    record_elevation = activity.positive_elevation_gain
+                if activity.avg_speed > record_avg_speed:
+                    record_elevation = activity.avg_speed
+                points += activity.distance*activity.discipline.points_per_km
+                i += 1
+            response[discip.name] = {
+                "total_km": total_km,
+                "total_time": total_time,
+                "total_elevation": total_elevation,
+                "avg_speed": avg_speed,
+                "record_distance": record_distance,
+                "record_time": record_time,
+                "record_elevation": record_elevation,
+                "record_avg_speed": record_avg_speed,
+                "points": points,
+                "nb_activities": i
+            }
+        return Response(response)
 
     @action(detail=True, methods=['GET'])
     def strava_activities(self, request, pk=None):
@@ -232,8 +267,8 @@ class AthleteViewSet(mixins.ListModelMixin,
         except models.ObjectDoesNotExist:
             return HttpResponseForbidden
         if athlete.last_update is not None:
-            if time.time() > athlete.last_update.time():
-                if time.time() > athlete.access_token_expiration_date:
+            if time.time() >= athlete.last_update.time():
+                if time.time() >= athlete.access_token_expiration_date:
                     refresh_strava_token(athlete)
                 headers = {'Authorization': 'Bearer ' + athlete.access_token}
 
@@ -271,7 +306,7 @@ class AthleteViewSet(mixins.ListModelMixin,
                         )
         else:
             if athlete.access_token_expiration_date is not None:
-                if time.time() > athlete.access_token_expiration_date.time():
+                if time.time() >= athlete.access_token_expiration_date.time():
                     refresh_strava_token(athlete)
             else:
                 refresh_strava_token(athlete)
@@ -417,14 +452,6 @@ class TeamViewSet(mixins.ListModelMixin,
 
     @action(detail=True, methods=['GET'])
     def stat(self, request, pk=None):
-        record_distance = 0
-        user_distance = None
-        record_time = 0
-        user_time = None
-        record_elevation = 0
-        user_elevation = None
-        record_avg_speed = 0
-        user_avg_speed = None
         user_id = request.user.id
         try:
             team = Team.objects.get(id=pk)
@@ -441,6 +468,15 @@ class TeamViewSet(mixins.ListModelMixin,
             disciplines = team.race.disciplines
             response = {}
             for discipline in disciplines:
+                record_distance = 0
+                user_distance = None
+                record_time = 0
+                user_time = None
+                record_elevation = 0
+                user_elevation = None
+                record_avg_speed = 0
+                user_avg_speed = None
+                points = 0
                 discipline_elem = discipline.discipline
                 for athlete in athletes:
                     activities = Activity.objects.filter(athlete=athlete, discipline=discipline_elem)
@@ -454,6 +490,7 @@ class TeamViewSet(mixins.ListModelMixin,
                         time += activity.run_time.time_seconds()
                         elevation += activity.positive_elevation_gain
                         avg_speed += (avg_speed * i + activity) / (1+i)
+                        points += activity.distance*activity.discipline.points_per_km
                         i += 1
                     if distance > record_distance:
                         record_distance = distance
@@ -475,7 +512,8 @@ class TeamViewSet(mixins.ListModelMixin,
                     "record_elevation": record_elevation,
                     "user_elevation": user_elevation,
                     "record_avg_speed": record_avg_speed,
-                    "user_avg_speed": user_avg_speed
+                    "user_avg_speed": user_avg_speed,
+                    "points": points
                 }
             return Response(response)
         return Response(status=400, data={"err": "Tentative de filouterie"})

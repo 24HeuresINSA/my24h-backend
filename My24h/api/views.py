@@ -271,7 +271,7 @@ class AthleteViewSet(mixins.ListModelMixin,
                         )
         else:
             if athlete.access_token_expiration_date is not None:
-                if time.time() > athlete.access_token_expiration_date:
+                if time.time() > athlete.access_token_expiration_date.time():
                     refresh_strava_token(athlete)
             else:
                 refresh_strava_token(athlete)

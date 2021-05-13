@@ -327,7 +327,6 @@ class AthleteViewSet(mixins.ListModelMixin,
                 headers=headers,
                 params=params
             )
-            print(response.data)
             if response.status_code == 200:
                 # athlete.last_update = now()
                 activities = response.json()

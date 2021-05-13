@@ -188,15 +188,44 @@ class AthleteViewSet(mixins.ListModelMixin,
 
     @action(detail=True, methods=['GET'])
     def point(self, request, pk=None):
+        race_id = request.POST.get("race_id")
+        category_id = request.POST.get("category_id")
         try:
-            racer = Athlete.objects.get(id=pk)
-        except models.ObjectDoesNotExist:
-            return HttpResponseNotFound(f"Racer with id {pk} not found")
-        return Response()
+            race = Race.objects.get(id=race_id)
+        except models.ObjectDoesNotExist as e:
+            print(e)
+            return Response(status=404, data={"err": f"Race {id} not found"})
+        try:
+            category = Category.objects.get(id=category_id)
+        except models.ObjectDoesNotExist as e:
+            print(e)
+            return Response(status=404, data={"err": f"Category {category_id} not found."})
+        athletes = Athlete.objects.filter()
+        return Response("Salut")
+
+    @action(detail=True, methods=['GET'])
+    def stat(self, request, pk=None):
+        user_id = request.user.id
+        try:
+            athlete = Athlete.objects.get(user__id=user_id)
+        except models.ObjectDoesNotExist as e:
+            print(e)
+            return Response(status=400, data={"err": f"Athlete {user_id} not found."})
+        activities = Activity.objects.filter(athlete=athlete)
+        total_km = 0
+        avg_speed = 0
+        total_time = 0
+        total_elevation = 0
+        record_distance = 0
+        record_time = 0
+        record_elevation = 0
+        record_avg_speed = 0
+        points = 0
+        nb_strava_activities = 0
+        return  Response("Hello")
 
     @action(detail=True, methods=['GET'])
     def strava_activities(self, request, pk=None):
-
         user_id = request.user.id
         try:
             athlete = Athlete.objects.get(user__id=user_id)
@@ -222,9 +251,11 @@ class AthleteViewSet(mixins.ListModelMixin,
                     headers=headers,
                     params=params
                 )
+                print(response.data)
                 if response.status_code == 200:
-                    athlete.last_update = now()
+                    # athlete.last_update = now()
                     activities = response.json()
+                    print(activities)
                     for activity in activities:
                         StravaActivity.objects.create(
                             id=activity.get("id"),
@@ -242,7 +273,7 @@ class AthleteViewSet(mixins.ListModelMixin,
         return Response("Todo")
 
     @action(detail=True, methods=['GET', 'POST', 'DELETE'])
-    def activites(self, request, pk=None):
+    def activities(self, request, pk=None):
         try:
             athletes = Athlete.objects.get(id=pk)
         except models.ObjectDoesNotExist:
@@ -253,7 +284,7 @@ class AthleteViewSet(mixins.ListModelMixin,
                 strava_activity = StravaActivity.objects.get(strava_activity_id)
             except models.ObjectDoesNotExist as e:
                 print(e)
-                return Response(status=404, data={f"Strava activity {strava_activity} not found"})
+                return Response(status=404, data={f"Strava activity {strava_activity_id} not found"})
             try:
                 athlete = Athlete.objects.get(user__id=request.user.id)
             except models.ObjectDoesNotExist as e:
@@ -342,6 +373,56 @@ class TeamViewSet(mixins.ListModelMixin,
                 return HttpResponseNotFound("Error w/ parameters received")
         else:
             return HttpResponseBadRequest("Missing one or more parameters")
+
+    @action(detail=True, methods=['GET'])
+    def stat(self, request, pk=None):
+        record_distance = 0
+        user_distance = None
+        record_time = 0
+        user_time = None
+        record_elevation = 0
+        user_elevation = None
+        record_avg_speed = 0
+        user_avg_speed = None
+        user_id = request.user.id
+        try:
+            team = Team.objects.get(id=pk)
+        except models.ObjectDoesNotExist as e:
+            print(e)
+            return Response(status=404, data={'err': f"Team {pk} not found"})
+        try:
+            athlete = Athlete.objects.get(user__id=user_id)
+        except models.ObjectDoesNotExist as e:
+            print(e)
+            return HttpResponseServerError
+        if team.members.filter(athlete).exists():
+            athletes = team.members.all()
+            for athlete in athletes:
+                activities = Activity.objects.filter(athlete=athlete)
+                distance = 0
+                time = 0
+                elevation = 0
+                avg_speed = 0
+                i = 0
+                for activity in activities:
+                    distance += activity.distance
+                    time += activity.run_time.time_seconds()
+                    elevation += activity.positive_elevation_gain
+                    avg_speed += (avg_speed*i+activity)
+                if distance > record_distance:
+                    record_distance = distance
+                    user_distance = athlete.user.username
+                if time > record_time:
+                    record_time = time
+                    user_time = athlete.user.username
+                if elevation > record_elevation:
+                    record_elevation = elevation
+                    user_elevation = athlete.user.username
+                if avg_speed > record_avg_speed:
+                    record_avg_speed = avg_speed
+                    user_avg_speed = athlete.user.username
+            return Response()
+
 
     def destroy(self, request, *args, **kwargs):
         user_id = request.user.id
@@ -493,11 +574,17 @@ class TeamViewSet(mixins.ListModelMixin,
     @action(detail=True, methods=["GET"])
     def ranking(self, request):
         race_id = request.POST.get("race_id")
+        category_id = request.POST.get("category_id")
         try:
             race = Race.objects.get(race_id)
         except models.ObjectDoesNotExist as e:
             return Response(status=404, data={"err": f"Race {race_id} not found"})
-        teams = Team.objects.filter(race=race)
+        try:
+            category = Category.objects.get(id=category_id)
+        except models.ObjectDoesNotExist as e:
+            print(e)
+            return Response(status=404, data={"err", f'Race {category_id} not found'})
+        teams = Team.objects.filter(race=race, category=category)
         teams_serializers = {}
         for team in teams:
             activities = None

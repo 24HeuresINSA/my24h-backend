@@ -312,67 +312,67 @@ class AthleteViewSet(mixins.ListModelMixin,
         return Response(StravaActivitySerializer(StravaActivity.objects.filter(athlete=athlete)))
 
 
-@action(detail=True, methods=['GET', 'POST', 'DELETE'])
-def activities(self, request, pk=None):
-    try:
-        athletes = Athlete.objects.get(id=pk)
-    except models.ObjectDoesNotExist:
-        return HttpResponseNotFound(f"Racer with id {pk} not found")
-    if request.method == 'POST':
-        strava_activity_id = request.POST.get("strava_activity_id")
+    @action(detail=True, methods=['GET', 'POST', 'DELETE'])
+    def activities(self, request, pk=None):
         try:
-            strava_activity = StravaActivity.objects.get(strava_activity_id)
-        except models.ObjectDoesNotExist as e:
-            print(e)
-            return Response(status=404, data={f"Strava activity {strava_activity_id} not found"})
-        try:
-            athlete = Athlete.objects.get(user__id=request.user.id)
-        except models.ObjectDoesNotExist as e:
-            print(e)
-            return HttpResponseServerError
-        if strava_activity.athlete == athlete:
-            if strava_activity.type == "Hike" or "Walk" or "Run":
-                discipline = Discipline.objects.get()
-            elif strava_activity.type == "Ride":
-                discipline = Discipline.objects.get()
+            athletes = Athlete.objects.get(id=pk)
+        except models.ObjectDoesNotExist:
+            return HttpResponseNotFound(f"Racer with id {pk} not found")
+        if request.method == 'POST':
+            strava_activity_id = request.POST.get("strava_activity_id")
+            try:
+                strava_activity = StravaActivity.objects.get(strava_activity_id)
+            except models.ObjectDoesNotExist as e:
+                print(e)
+                return Response(status=404, data={f"Strava activity {strava_activity_id} not found"})
+            try:
+                athlete = Athlete.objects.get(user__id=request.user.id)
+            except models.ObjectDoesNotExist as e:
+                print(e)
+                return HttpResponseServerError
+            if strava_activity.athlete == athlete:
+                if strava_activity.type == "Hike" or "Walk" or "Run":
+                    discipline = Discipline.objects.get()
+                elif strava_activity.type == "Ride":
+                    discipline = Discipline.objects.get()
+                else:
+                    return HttpResponseBadRequest
+                activity = Activity.objects.create(
+                    activity_id=strava_activity.id,
+                    athlete=Athlete.objects.get(user__id=request.user.id),
+                    date=strava_activity.start_date,
+                    distance=strava_activity.distance,
+                    positive_elevation_gain=strava_activity.total_elevation_gain,
+                    discipline=discipline,
+                    run_time=strava_activity.moving_time
+                )
+                return Response()
             else:
-                return HttpResponseBadRequest
-            activity = Activity.objects.create(
-                activity_id=strava_activity.id,
-                athlete=Athlete.objects.get(user__id=request.user.id),
-                date=strava_activity.start_date,
-                distance=strava_activity.distance,
-                positive_elevation_gain=strava_activity.total_elevation_gain,
-                discipline=discipline,
-                run_time=strava_activity.moving_time
-            )
-            return Response()
-        else:
-            return Response("Tentative de filouterie")
-    elif request.method == 'DELETE':
-        activity_id = request.POST.get("activity_id")
-        user_id = request.user.id
-        try:
-            activity = Activity.objects.get(activity_id)
-        except models.ObjectDoesNotExist as e:
-            print(e)
-            return Response(status=404, data={"err": f"Activity {activity_id} not found"})
-        try:
-            athlete = Athlete.objects.get(user__id=user_id)
-        except models.ObjectDoesNotExist as e:
-            print(e)
-            return HttpResponseServerError
-        if activity.athlete == athlete:
-            activity.delete()
-            return Response(status=204, data={"succ": "Activity Deleted"})
-        return False
-    return Response()
+                return Response("Tentative de filouterie")
+        elif request.method == 'DELETE':
+            activity_id = request.POST.get("activity_id")
+            user_id = request.user.id
+            try:
+                activity = Activity.objects.get(activity_id)
+            except models.ObjectDoesNotExist as e:
+                print(e)
+                return Response(status=404, data={"err": f"Activity {activity_id} not found"})
+            try:
+                athlete = Athlete.objects.get(user__id=user_id)
+            except models.ObjectDoesNotExist as e:
+                print(e)
+                return HttpResponseServerError
+            if activity.athlete == athlete:
+                activity.delete()
+                return Response(status=204, data={"succ": "Activity Deleted"})
+            return False
+        return Response(ActivitySerializer(Activity.objects.filter(athlete=Athlete.objects.get(user__id=request.user.id))))
 
 
-@action(detail=True, methods=['GET'])
-def ranking(self, request, pk=None):
-    # Todo: reparation
-    return Response("En cours de réparation")
+    @action(detail=True, methods=['GET'])
+    def ranking(self, request, pk=None):
+        # Todo: reparation
+        return Response("En cours de réparation")
 
 
 class TeamViewSet(mixins.ListModelMixin,
@@ -438,31 +438,47 @@ class TeamViewSet(mixins.ListModelMixin,
             return HttpResponseServerError
         if team.members.filter(athlete).exists():
             athletes = team.members.all()
-            for athlete in athletes:
-                activities = Activity.objects.filter(athlete=athlete)
-                distance = 0
-                time = 0
-                elevation = 0
-                avg_speed = 0
-                i = 0
-                for activity in activities:
-                    distance += activity.distance
-                    time += activity.run_time.time_seconds()
-                    elevation += activity.positive_elevation_gain
-                    avg_speed += (avg_speed * i + activity)
-                if distance > record_distance:
-                    record_distance = distance
-                    user_distance = athlete.user.username
-                if time > record_time:
-                    record_time = time
-                    user_time = athlete.user.username
-                if elevation > record_elevation:
-                    record_elevation = elevation
-                    user_elevation = athlete.user.username
-                if avg_speed > record_avg_speed:
-                    record_avg_speed = avg_speed
-                    user_avg_speed = athlete.user.username
-            return Response()
+            disciplines = team.race.disciplines
+            response = {}
+            for discipline in disciplines:
+                discipline_elem = discipline.discipline
+                for athlete in athletes:
+                    activities = Activity.objects.filter(athlete=athlete, discipline=discipline_elem)
+                    distance = 0
+                    time = 0
+                    elevation = 0
+                    avg_speed = 0
+                    i = 0
+                    for activity in activities:
+                        distance += activity.distance
+                        time += activity.run_time.time_seconds()
+                        elevation += activity.positive_elevation_gain
+                        avg_speed += (avg_speed * i + activity) / (1+i)
+                        i += 1
+                    if distance > record_distance:
+                        record_distance = distance
+                        user_distance = athlete.user.username
+                    if time > record_time:
+                        record_time = time
+                        user_time = athlete.user.username
+                    if elevation > record_elevation:
+                        record_elevation = elevation
+                        user_elevation = athlete.user.username
+                    if avg_speed > record_avg_speed:
+                        record_avg_speed = avg_speed
+                        user_avg_speed = athlete.user.username
+                response[discipline_elem.name] = {
+                    "record_distance": record_distance,
+                    "user_distance": user_distance,
+                    "record_time": record_time,
+                    "user_time": user_time,
+                    "record_elevation": record_elevation,
+                    "user_elevation": user_elevation,
+                    "record_avg_speed": record_avg_speed,
+                    "user_avg_speed": user_avg_speed
+                }
+            return Response(response)
+        return Response(status=400, data={"err": "Tentative de filouterie"})
 
     def destroy(self, request, *args, **kwargs):
         user_id = request.user.id

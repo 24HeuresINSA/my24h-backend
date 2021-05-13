@@ -161,10 +161,18 @@ class CustomTokenRefreshSerializer(TokenRefreshSerializer):
         data['lifetime'] = int(refresh.access_token.lifetime.total_seconds)
         return data
 
+
 class StravaActivitySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = StravaActivity
+        fields = "__all__"
+
+
+class ActivitySerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Activity
         fields = "__all__"
 
 

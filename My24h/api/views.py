@@ -267,8 +267,8 @@ class AthleteViewSet(mixins.ListModelMixin,
         except models.ObjectDoesNotExist:
             return HttpResponseForbidden
         if athlete.last_update is not None:
-            if time.time() >= athlete.last_update.time():
-                if time.time() >= athlete.access_token_expiration_date:
+            if time.time() >= athlete.last_update.timestamp():
+                if time.time() >= athlete.access_token_expiration_date.timestamp():
                     refresh_strava_token(athlete)
                 headers = {'Authorization': 'Bearer ' + athlete.access_token}
 
@@ -306,7 +306,7 @@ class AthleteViewSet(mixins.ListModelMixin,
                         )
         else:
             if athlete.access_token_expiration_date is not None:
-                if time.time() >= athlete.access_token_expiration_date.time():
+                if time.time() >= athlete.access_token_expiration_date.timestamp():
                     refresh_strava_token(athlete)
             else:
                 refresh_strava_token(athlete)

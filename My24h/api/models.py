@@ -121,7 +121,7 @@ class Activity(models.Model):
 
 
 class StravaActivity(models.Model):
-    id = models.BigIntegerField(primary_key=True)
+    strava_id = models.BigIntegerField(primary_key=True)
     name = models.CharField(max_length=500)
     type = models.CharField(max_length=50)
     distance = models.FloatField()

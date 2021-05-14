@@ -418,7 +418,7 @@ class AthleteViewSet(mixins.ListModelMixin,
         return Response(
             ActivitySerializer(Activity.objects.filter(athlete=Athlete.objects.get(user__id=request.user.id))).data)
 
-    @action(detail=True, methods=['GET'])
+    @action(detail=True, methods=['POST'])
     def ranking(self, request, pk=None):
         race_id = request.POST.get("race_id")
         category_id = request.POST.get("category_id")
@@ -671,7 +671,7 @@ class TeamViewSet(mixins.ListModelMixin,
         except models.ObjectDoesNotExist:
             return HttpResponseNotFound(f"Racer with id {user_id} not found")
         if join_code == team.join_code:
-            if team.members.count() < team.category.nb_participants:
+            if team.members.count() <= team.category.nb_participants:
                 if athlete.team is not None:
                     if not athlete.team.id == team.id:
                         athlete.team = team

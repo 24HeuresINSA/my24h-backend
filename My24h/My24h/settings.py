@@ -85,7 +85,8 @@ DATABASES = {
         "USER": os.getenv("SQL_USER", default="user"),
         "PASSWORD": os.getenv("SQL_PASSWORD", default="password"),
         "HOST": os.getenv("SQL_HOST", default="localhost"),
-        "PORT": os.getenv("SQL_PORT", default="5432")
+        "PORT": os.getenv("SQL_PORT", default="5432"),
+        "OPTIONS":  {"charset": "utf8mb4"}
     }
 }
 

@@ -548,7 +548,7 @@ class TeamViewSet(mixins.ListModelMixin,
             return HttpResponseServerError
         if team.members.filter(athlete).exists():
             athletes = team.members.all()
-            disciplines = team.race.disciplines
+            disciplines = RaceDiscipline.objects.filter(race=team.race)
             response = {}
             for discipline in disciplines:
                 record_distance = 0

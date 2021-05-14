@@ -167,7 +167,7 @@ class StravaActivitySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = StravaActivity
-        fields = ["id", "name", "type", "distance", "moving_time", "total_elevation_gain", "start_date"]
+        fields = ["strava_id", "name", "type", "distance", "moving_time", "total_elevation_gain", "start_date"]
 
 
 class ActivitySerializer(serializers.ModelSerializer):

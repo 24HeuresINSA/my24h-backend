@@ -261,57 +261,21 @@ class AthleteViewSet(mixins.ListModelMixin,
 
     @action(detail=True, methods=['GET'])
     def strava_activities(self, request, pk=None):
-        user_id = request.user.id
         try:
-            athlete = Athlete.objects.get(user__id=user_id)
+            athlete = Athlete.objects.get(id=pk)
         except models.ObjectDoesNotExist:
             return HttpResponseForbidden
         if athlete.last_update is not None:
-            if time.time() >= athlete.last_update.timestamp():
-                if time.time() >= athlete.access_token_expiration_date.timestamp():
-                    refresh_strava_token(athlete)
-                headers = {'Authorization': 'Bearer ' + athlete.access_token}
-
-                if "pintade" in athlete.user.username:
-                    params = {
-                        "per_page": 30,
-                    }
-                else:
-                    params = {
-                        "per_page": 30,
-                        "before": 1619179200,
-                        "after": 1618401600,
-                    }
-                response = requests.get(
-                    url="https://www.strava.com/api/v3/athlete/activities",
-                    headers=headers,
-                    params=params
-                )
-                print(response.data)
-                if response.status_code == 200:
-                    # athlete.last_update = now()
-                    activities = response.json()
-                    print(activities)
-                    for activity in activities:
-                        StravaActivity.objects.create(
-                            id=activity.get("id"),
-                            name=activity.get("name"),
-                            type=activity.get("type"),
-                            distance=activity.get("distance"),
-                            moving_time=activity.get("moving_time"),
-                            total_elevation_gain=activity.get("total_elevation_gain"),
-                            start_date=datetime.datetime.strptime(activity.get("start_date_local"),
-                                                                  "%Y-%m-%dT%H:%M:%SZ"),
-                            athlete=athlete
-                        )
-        else:
             if athlete.access_token_expiration_date is not None:
                 if time.time() >= athlete.access_token_expiration_date.timestamp():
-                    refresh_strava_token(athlete)
+                    refresh, msg = refresh_strava_token(athlete)
+                    if not refresh:
+                        return Response(status=403, data=msg)
             else:
-                refresh_strava_token(athlete)
+                refresh, msg = refresh_strava_token(athlete)
+                if not refresh:
+                    return Response(status=403, data=msg)
             headers = {'Authorization': 'Bearer ' + athlete.access_token}
-
             if "pintade" in athlete.user.username:
                 params = {
                     "per_page": 30,
@@ -319,37 +283,91 @@ class AthleteViewSet(mixins.ListModelMixin,
             else:
                 params = {
                     "per_page": 30,
-                    "before": 1619179200,
-                    "after": 1618401600,
+                    # "before": 1619179200,
+                    # "after": 1618401600,
                 }
             response = requests.get(
                 url="https://www.strava.com/api/v3/athlete/activities",
                 headers=headers,
                 params=params
             )
-            if response.status_code == 200:
+            print(response)
+            if response.status_code < 300:
                 # athlete.last_update = now()
                 activities = response.json()
-                print(activities)
+                print("Activities", activities)
                 for activity in activities:
                     StravaActivity.objects.create(
                         id=activity.get("id"),
                         name=activity.get("name"),
                         type=activity.get("type"),
-                        distance=datetime.timedelta(seconds=int(activity.get("distance"))),
-                        moving_time=activity.get("moving_time"),
+                        distance=activity.get("distance"),
+                        moving_time=datetime.timedelta(seconds=int(activity.get("moving_time"))),
                         total_elevation_gain=activity.get("total_elevation_gain"),
                         start_date=datetime.datetime.strptime(activity.get("start_date_local"),
                                                               "%Y-%m-%dT%H:%M:%SZ"),
                         athlete=athlete
                     )
-        return Response(StravaActivitySerializer(StravaActivity.objects.filter(athlete=athlete)))
+            else:
+                return Response(response.status_code)
+
+        else:
+            if athlete.access_token_expiration_date is not None:
+                if time.time() >= athlete.access_token_expiration_date.timestamp():
+                    refresh, msg = refresh_strava_token(athlete)
+            else:
+                refresh, msg = refresh_strava_token(athlete)
+            if not refresh:
+                return Response(status=403, data=msg)
+            headers = {'Authorization': 'Bearer ' + athlete.access_token}
+            print("OK")
+            if "pintade" in athlete.user.username:
+                params = {
+                    "per_page": 30,
+                }
+            else:
+                params = {
+                    "per_page": 30,
+                    # "before": 1619179200,
+                    # "after": 1618401600,
+                }
+            response = requests.get(
+                url="https://www.strava.com/api/v3/athlete/activities",
+                headers=headers,
+                params=params
+            )
+            print("Hello")
+            if response.status_code < 300:
+                # athlete.last_update = now()
+                activities = response.json()
+                print("Activities", activities)
+                for activity in activities:
+                    strava_activity, created = StravaActivity.objects.get_or_create(
+                        id=activity.get("id"),
+                        name=activity.get("name"),
+                        type=activity.get("type"),
+                        distance=activity.get("distance"),
+                        moving_time=datetime.timedelta(seconds=int(activity.get("moving_time"))),
+                        total_elevation_gain=activity.get("total_elevation_gain"),
+                        start_date=datetime.datetime.strptime(activity.get("start_date_local"),
+                                                              "%Y-%m-%dT%H:%M:%SZ"),
+                        athlete=athlete
+                    )
+                    print(strava_activity)
+            else:
+                return Response(response.status_code)
+        activities = Activity.objects.filter(athlete=athlete)
+        id = []
+        for activity in activities:
+            id.append(activity.activity_id)
+        strava_activities = StravaActivity.objects.filter(athlete=athlete).exclude(id__in=id)
+        return Response(StravaActivitySerializer(strava_activities).data)
 
 
     @action(detail=True, methods=['GET', 'POST', 'DELETE'])
     def activities(self, request, pk=None):
         try:
-            athletes = Athlete.objects.get(id=pk)
+            athlete = Athlete.objects.get(id=pk)
         except models.ObjectDoesNotExist:
             return HttpResponseNotFound(f"Racer with id {pk} not found")
         if request.method == 'POST':
@@ -359,19 +377,14 @@ class AthleteViewSet(mixins.ListModelMixin,
             except models.ObjectDoesNotExist as e:
                 print(e)
                 return Response(status=404, data={f"Strava activity {strava_activity_id} not found"})
-            try:
-                athlete = Athlete.objects.get(user__id=request.user.id)
-            except models.ObjectDoesNotExist as e:
-                print(e)
-                return HttpResponseServerError
             if strava_activity.athlete == athlete:
                 if strava_activity.type == "Hike" or "Walk" or "Run":
-                    discipline = Discipline.objects.get()
+                    discipline = Discipline.objects.get(name="Course à pied")
                 elif strava_activity.type == "Ride":
-                    discipline = Discipline.objects.get()
+                    discipline = Discipline.objects.get(name="Course vélo")
                 else:
                     return HttpResponseBadRequest
-                activity = Activity.objects.create(
+                activity, created = Activity.objects.get_or_create(
                     activity_id=strava_activity.id,
                     athlete=Athlete.objects.get(user__id=request.user.id),
                     date=strava_activity.start_date,
@@ -380,7 +393,7 @@ class AthleteViewSet(mixins.ListModelMixin,
                     discipline=discipline,
                     run_time=strava_activity.moving_time
                 )
-                return Response()
+                return Response(ActivitySerializer(activity).data)
             else:
                 return Response("Tentative de filouterie")
         elif request.method == 'DELETE':
@@ -405,8 +418,76 @@ class AthleteViewSet(mixins.ListModelMixin,
 
     @action(detail=True, methods=['GET'])
     def ranking(self, request, pk=None):
-        # Todo: reparation
-        return Response("En cours de réparation")
+        race_id = request.POST.get("race_id")
+        category_id = request.POST.get("category_id")
+        try:
+            race = Race.objects.get(race_id)
+        except models.ObjectDoesNotExist as e:
+            return Response(status=404, data={"err": f"Race {race_id} not found"})
+        try:
+            category = Category.objects.get(id=category_id)
+        except models.ObjectDoesNotExist as e:
+            return Response(status=404, data={"err", f'Category {category_id} not found'})
+        athletes = Athlete.objects.all()
+        list_athletes = []
+        for athlete in athletes:
+            if athlete.team is not None:
+                if athlete.team.category == category and athlete.team.race == athlete:
+                    list_athletes.append(athlete)
+            else:
+                if athlete.category is not None and athlete.race is not None:
+                    if athlete.category == category and athlete.race == race:
+                        list_athletes.append(athlete)
+        athletes_serializer = {}
+        for athlete in list_athletes:
+            activities = Activity.objects.filter(athlete=athlete)
+            race_disciplines = RaceDiscipline.objects.filter(race)
+            athlete_serializer = {}
+            for race_discipline in race_disciplines:
+                discipline_activities = None
+                for activity in activities:
+                    if activity.discipline == race_discipline.discipline:
+                        discipline_activities = list(chain(discipline_activities, activity))
+                dict_activities = []
+                for discipline_activity in discipline_activities:
+                    dict_activities.append((discipline_activity,
+                                            discipline_activity.distance / discipline_activity.run_time.total_seconds()))
+                sorted_dict = sorted(dict_activities, key=lambda tup: tup[1])
+                points = 0
+                duration = 0
+                saved_activities = []
+                for elem in sorted_dict:
+                    if duration < race_discipline.duration.total_seconds():
+                        if duration + elem[0].run_time.total_seconds() > race_discipline.duration.total_seconds():
+                            temp = race_discipline.duration.total_seconds() - duration
+                            activity_duration = elem[0].run_time.total_seconds()
+                            activity_distance = elem[0].distance
+                            duration = race_discipline.duration.total_seconds()
+                            points += (
+                                              temp * activity_distance / activity_duration) * race_discipline.discipline.points_per_km
+                            saved_activities.append(elem[0].id)
+                            break
+                        else:
+                            duration += elem[0].run_time.total_seconds()
+                            points += (elem[0].distance * race_discipline.discipline.points_per_km)
+                            saved_activities.append(elem[0].id)
+
+                athlete_serializer[race_discipline.discipline.name] = {
+                    "points": points,
+                    "activities": saved_activities,
+                    "duration": duration
+                }
+            total_points = 0
+            for key, value in athlete_serializer.items():
+                total_points += value["points"]
+            athletes_serializer[athlete.id] = {
+                "total_points": total_points,
+                "details": athlete_serializer,
+            }
+        final_serializer = {k: v for k, v in
+                            sorted(athlete_serializer.items(), key=lambda item: item[1]["total_points"])}
+        print(final_serializer)
+        return Response(data=final_serializer)
 
 
 class TeamViewSet(mixins.ListModelMixin,
@@ -753,7 +834,7 @@ def access_token(request):
                         "refresh": str(refresh)
                     }
                 )
-    return HttpResponseBadRequest
+    return HttpResponseBadRequest("Oups")
 
 
 @api_view(['POST'])
@@ -768,7 +849,7 @@ def refresh_tocken(request):
                 "refresh": str(refresh_token)
             }
         )
-    return HttpResponseBadRequest
+    return HttpResponseBadRequest()
 
 
 def refresh_strava_token(athlete: Athlete):
@@ -789,3 +870,7 @@ def refresh_strava_token(athlete: Athlete):
         athlete.refresh_token = data.get("refresh_token")
         athlete.strava_id = data.get("athlete").get("id")
         athlete.save()
+        return [True, ]
+    else:
+        return [False, response.text]
+

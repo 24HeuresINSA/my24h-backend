@@ -138,3 +138,5 @@ class StravaActivity(models.Model):
 
     def __str__(self):
         return self.name
+
+

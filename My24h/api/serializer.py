@@ -164,6 +164,7 @@ class CustomTokenRefreshSerializer(TokenRefreshSerializer):
 
 
 class StravaActivitySerializer(serializers.ModelSerializer):
+
     class Meta:
         model = StravaActivity
         fields = "__all__"

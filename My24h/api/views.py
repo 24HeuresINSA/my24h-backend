@@ -217,8 +217,8 @@ class AthleteViewSet(mixins.ListModelMixin,
         else:
             race = athlete.team.race
         response = {}
-
-        for discipline in race.disciplines:
+        disciplines = RaceDiscipline.objects.filter(race)
+        for discipline in disciplines:
             total_km = 0
             avg_speed = 0
             total_time = 0
@@ -862,6 +862,7 @@ def refresh_tocken(request):
 
 
 def refresh_strava_token(athlete: Athlete):
+    print(athlete.refresh_token)
     data = {
         "client_id": os.getenv("CLIENT_ID"),
         "client_secret": os.getenv("CLIENT_SECRET"),
@@ -881,4 +882,5 @@ def refresh_strava_token(athlete: Athlete):
         athlete.save()
         return [True, ]
     else:
+        print(response.text)
         return [False, response.text]

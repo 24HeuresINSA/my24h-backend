@@ -104,7 +104,7 @@ class Athlete(models.Model):
 
 
 class Activity(models.Model):
-    activity_id = models.IntegerField(primary_key=True)
+    activity_id = models.BigIntegerField(primary_key=True)
     athlete = models.ForeignKey(Athlete, related_name='activities', on_delete=models.CASCADE)
     date = models.DateTimeField(blank=False, null=False)
     upload_date = models.DateTimeField(default=timezone.now)
@@ -121,7 +121,7 @@ class Activity(models.Model):
 
 
 class StravaActivity(models.Model):
-    id = models.IntegerField(primary_key=True)
+    id = models.BigIntegerField(primary_key=True)
     name = models.CharField(max_length=500)
     type = models.CharField(max_length=50)
     distance = models.FloatField()

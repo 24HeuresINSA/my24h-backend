@@ -182,9 +182,9 @@ class AthleteViewSet(mixins.ListModelMixin,
                 athlete.refresh_token = data.get("refresh_token")
                 athlete.strava_id = data.get("athlete").get("id")
                 athlete.save()
-                return Response("Successfully updated/ En cours de réparation")
-            return HttpResponseServerError
-        return HttpResponseBadRequest
+                return Response("Successfully updated")
+            return HttpResponseServerError()
+        return HttpResponseBadRequest()
 
     @action(detail=True, methods=['GET'])
     def point(self, request, pk=None):
@@ -217,6 +217,7 @@ class AthleteViewSet(mixins.ListModelMixin,
         else:
             race = athlete.team.race
         response = {}
+
         for discipline in race.disciplines:
             total_km = 0
             avg_speed = 0
@@ -230,33 +231,34 @@ class AthleteViewSet(mixins.ListModelMixin,
             discip = discipline.discipline
             activities = Activity.objects.filter(athlete=athlete, discipline=discip)
             i = 0
-            for activity in activities:
-                total_km += activity.distance
-                total_elevation += activity.positive_elevation_gain
-                total_time += activity.run_time.time_seconds()
-                avg_speed = (avg_speed*i +activity.avg_speed)/(i+1)
-                if activity.distance > record_distance:
-                    record_distance = activity.distance
-                if activity.run_time.time_seconds() > record_time:
-                    record_time = activity.run_time.time_seconds()
-                if activity.positive_elevation_gain > record_elevation:
-                    record_elevation = activity.positive_elevation_gain
-                if activity.avg_speed > record_avg_speed:
-                    record_elevation = activity.avg_speed
-                points += activity.distance*activity.discipline.points_per_km
-                i += 1
-            response[discip.name] = {
-                "total_km": total_km,
-                "total_time": total_time,
-                "total_elevation": total_elevation,
-                "avg_speed": avg_speed,
-                "record_distance": record_distance,
-                "record_time": record_time,
-                "record_elevation": record_elevation,
-                "record_avg_speed": record_avg_speed,
-                "points": points,
-                "nb_activities": i
-            }
+            if activities:
+                for activity in activities:
+                    total_km += activity.distance
+                    total_elevation += activity.positive_elevation_gain
+                    total_time += activity.run_time.time_seconds()
+                    avg_speed = (avg_speed * i + activity.avg_speed) / (i + 1)
+                    if activity.distance > record_distance:
+                        record_distance = activity.distance
+                    if activity.run_time.time_seconds() > record_time:
+                        record_time = activity.run_time.time_seconds()
+                    if activity.positive_elevation_gain > record_elevation:
+                        record_elevation = activity.positive_elevation_gain
+                    if activity.avg_speed > record_avg_speed:
+                        record_elevation = activity.avg_speed
+                    points += activity.distance * activity.discipline.points_per_km
+                    i += 1
+                response[discip.name] = {
+                    "total_km": total_km,
+                    "total_time": total_time,
+                    "total_elevation": total_elevation,
+                    "avg_speed": avg_speed,
+                    "record_distance": record_distance,
+                    "record_time": record_time,
+                    "record_elevation": record_elevation,
+                    "record_avg_speed": record_avg_speed,
+                    "points": points,
+                    "nb_activities": i
+                }
         return Response(response)
 
     @action(detail=True, methods=['GET'])
@@ -315,12 +317,13 @@ class AthleteViewSet(mixins.ListModelMixin,
             if athlete.access_token_expiration_date is not None:
                 if time.time() >= athlete.access_token_expiration_date.timestamp():
                     refresh, msg = refresh_strava_token(athlete)
+                    if not refresh:
+                        return Response(status=403, data=msg)
             else:
                 refresh, msg = refresh_strava_token(athlete)
-            if not refresh:
-                return Response(status=403, data=msg)
+                if not refresh:
+                    return Response(status=403, data=msg)
             headers = {'Authorization': 'Bearer ' + athlete.access_token}
-            print("OK")
             if "pintade" in athlete.user.username:
                 params = {
                     "per_page": 30,
@@ -362,7 +365,6 @@ class AthleteViewSet(mixins.ListModelMixin,
             id.append(activity.activity_id)
         strava_activities = StravaActivity.objects.filter(athlete=athlete).exclude(id__in=id)
         return Response(StravaActivitySerializer(strava_activities).data)
-
 
     @action(detail=True, methods=['GET', 'POST', 'DELETE'])
     def activities(self, request, pk=None):
@@ -413,8 +415,8 @@ class AthleteViewSet(mixins.ListModelMixin,
                 activity.delete()
                 return Response(status=204, data={"succ": "Activity Deleted"})
             return False
-        return Response(ActivitySerializer(Activity.objects.filter(athlete=Athlete.objects.get(user__id=request.user.id))).data)
-
+        return Response(
+            ActivitySerializer(Activity.objects.filter(athlete=Athlete.objects.get(user__id=request.user.id))).data)
 
     @action(detail=True, methods=['GET'])
     def ranking(self, request, pk=None):
@@ -443,47 +445,48 @@ class AthleteViewSet(mixins.ListModelMixin,
             activities = Activity.objects.filter(athlete=athlete)
             race_disciplines = RaceDiscipline.objects.filter(race)
             athlete_serializer = {}
-            for race_discipline in race_disciplines:
-                discipline_activities = None
-                for activity in activities:
-                    if activity.discipline == race_discipline.discipline:
-                        discipline_activities = list(chain(discipline_activities, activity))
-                dict_activities = []
-                for discipline_activity in discipline_activities:
-                    dict_activities.append((discipline_activity,
-                                            discipline_activity.distance / discipline_activity.run_time.total_seconds()))
-                sorted_dict = sorted(dict_activities, key=lambda tup: tup[1])
-                points = 0
-                duration = 0
-                saved_activities = []
-                for elem in sorted_dict:
-                    if duration < race_discipline.duration.total_seconds():
-                        if duration + elem[0].run_time.total_seconds() > race_discipline.duration.total_seconds():
-                            temp = race_discipline.duration.total_seconds() - duration
-                            activity_duration = elem[0].run_time.total_seconds()
-                            activity_distance = elem[0].distance
-                            duration = race_discipline.duration.total_seconds()
-                            points += (
-                                              temp * activity_distance / activity_duration) * race_discipline.discipline.points_per_km
-                            saved_activities.append(elem[0].id)
-                            break
-                        else:
-                            duration += elem[0].run_time.total_seconds()
-                            points += (elem[0].distance * race_discipline.discipline.points_per_km)
-                            saved_activities.append(elem[0].id)
+            if activities:
+                for race_discipline in race_disciplines:
+                    discipline_activities = None
+                    for activity in activities:
+                        if activity.discipline == race_discipline.discipline:
+                            discipline_activities = list(chain(discipline_activities, activity))
+                    dict_activities = []
+                    for discipline_activity in discipline_activities:
+                        dict_activities.append((discipline_activity,
+                                                discipline_activity.distance / discipline_activity.run_time.total_seconds()))
+                    sorted_dict = sorted(dict_activities, key=lambda tup: tup[1])
+                    points = 0
+                    duration = 0
+                    saved_activities = []
+                    for elem in sorted_dict:
+                        if duration < race_discipline.duration.total_seconds():
+                            if duration + elem[0].run_time.total_seconds() > race_discipline.duration.total_seconds():
+                                temp = race_discipline.duration.total_seconds() - duration
+                                activity_duration = elem[0].run_time.total_seconds()
+                                activity_distance = elem[0].distance
+                                duration = race_discipline.duration.total_seconds()
+                                points += (
+                                                  temp * activity_distance / activity_duration) * race_discipline.discipline.points_per_km
+                                saved_activities.append(elem[0].id)
+                                break
+                            else:
+                                duration += elem[0].run_time.total_seconds()
+                                points += (elem[0].distance * race_discipline.discipline.points_per_km)
+                                saved_activities.append(elem[0].id)
 
-                athlete_serializer[race_discipline.discipline.name] = {
-                    "points": points,
-                    "activities": saved_activities,
-                    "duration": duration
+                    athlete_serializer[race_discipline.discipline.name] = {
+                        "points": points,
+                        "activities": saved_activities,
+                        "duration": duration
+                    }
+                total_points = 0
+                for key, value in athlete_serializer.items():
+                    total_points += value["points"]
+                athletes_serializer[athlete.id] = {
+                    "total_points": total_points,
+                    "details": athlete_serializer,
                 }
-            total_points = 0
-            for key, value in athlete_serializer.items():
-                total_points += value["points"]
-            athletes_serializer[athlete.id] = {
-                "total_points": total_points,
-                "details": athlete_serializer,
-            }
         final_serializer = {k: v for k, v in
                             sorted(athlete_serializer.items(), key=lambda item: item[1]["total_points"])}
         print(final_serializer)
@@ -558,43 +561,45 @@ class TeamViewSet(mixins.ListModelMixin,
                 user_avg_speed = None
                 points = 0
                 discipline_elem = discipline.discipline
-                for athlete in athletes:
-                    activities = Activity.objects.filter(athlete=athlete, discipline=discipline_elem)
-                    distance = 0
-                    time = 0
-                    elevation = 0
-                    avg_speed = 0
-                    i = 0
-                    for activity in activities:
-                        distance += activity.distance
-                        time += activity.run_time.time_seconds()
-                        elevation += activity.positive_elevation_gain
-                        avg_speed += (avg_speed * i + activity) / (1+i)
-                        points += activity.distance*activity.discipline.points_per_km
-                        i += 1
-                    if distance > record_distance:
-                        record_distance = distance
-                        user_distance = athlete.user.username
-                    if time > record_time:
-                        record_time = time
-                        user_time = athlete.user.username
-                    if elevation > record_elevation:
-                        record_elevation = elevation
-                        user_elevation = athlete.user.username
-                    if avg_speed > record_avg_speed:
-                        record_avg_speed = avg_speed
-                        user_avg_speed = athlete.user.username
-                response[discipline_elem.name] = {
-                    "record_distance": record_distance,
-                    "user_distance": user_distance,
-                    "record_time": record_time,
-                    "user_time": user_time,
-                    "record_elevation": record_elevation,
-                    "user_elevation": user_elevation,
-                    "record_avg_speed": record_avg_speed,
-                    "user_avg_speed": user_avg_speed,
-                    "points": points
-                }
+                if athletes:
+                    for athlete in athletes:
+                        activities = Activity.objects.filter(athlete=athlete, discipline=discipline_elem)
+                        distance = 0
+                        time = 0
+                        elevation = 0
+                        avg_speed = 0
+                        i = 0
+                        if activities:
+                            for activity in activities:
+                                distance += activity.distance
+                                time += activity.run_time.time_seconds()
+                                elevation += activity.positive_elevation_gain
+                                avg_speed += (avg_speed * i + activity) / (1 + i)
+                                points += activity.distance * activity.discipline.points_per_km
+                                i += 1
+                            if distance > record_distance:
+                                record_distance = distance
+                                user_distance = athlete.user.username
+                            if time > record_time:
+                                record_time = time
+                                user_time = athlete.user.username
+                            if elevation > record_elevation:
+                                record_elevation = elevation
+                                user_elevation = athlete.user.username
+                            if avg_speed > record_avg_speed:
+                                record_avg_speed = avg_speed
+                                user_avg_speed = athlete.user.username
+                        response[discipline_elem.name] = {
+                            "record_distance": record_distance,
+                            "user_distance": user_distance,
+                            "record_time": record_time,
+                            "user_time": user_time,
+                            "record_elevation": record_elevation,
+                            "user_elevation": user_elevation,
+                            "record_avg_speed": record_avg_speed,
+                            "user_avg_speed": user_avg_speed,
+                            "points": points
+                        }
             return Response(response)
         return Response(status=400, data={"err": "Tentative de filouterie"})
 
@@ -765,44 +770,48 @@ class TeamViewSet(mixins.ListModelMixin,
             athletes = team.members.all()
             for athlete in athletes:
                 activities_athlete = athlete.activities.all()
-                activities = list(chain(activities, activities_athlete))
+                if activities_athlete:
+                    activities = list(chain(activities, activities_athlete))
+                else:
+                    activities = None
             race = team.race
             race_disciplines = RaceDiscipline.objects.filter(race)
             team_serializer = {}
             for race_discipline in race_disciplines:
                 discipline_activities = None
-                for activity in activities:
-                    if activity.discipline == race_discipline.discipline:
-                        discipline_activities = list(chain(discipline_activities, activity))
-                dict_activities = []
-                for discipline_activity in discipline_activities:
-                    dict_activities.append((discipline_activity,
-                                            discipline_activity.distance / discipline_activity.run_time.total_seconds()))
-                sorted_dict = sorted(dict_activities, key=lambda tup: tup[1])
-                points = 0
-                duration = 0
-                saved_activities = []
-                for elem in sorted_dict:
-                    if duration < race_discipline.duration.total_seconds():
-                        if duration + elem[0].run_time.total_seconds() > race_discipline.duration.total_seconds():
-                            temp = race_discipline.duration.total_seconds() - duration
-                            activity_duration = elem[0].run_time.total_seconds()
-                            activity_distance = elem[0].distance
-                            duration = race_discipline.duration.total_seconds()
-                            points += (
-                                              temp * activity_distance / activity_duration) * race_discipline.discipline.points_per_km
-                            saved_activities.append(elem[0].id)
-                            break
-                        else:
-                            duration += elem[0].run_time.total_seconds()
-                            points += (elem[0].distance * race_discipline.discipline.points_per_km)
-                            saved_activities.append(elem[0].id)
+                if activities:
+                    for activity in activities:
+                        if activity.discipline == race_discipline.discipline:
+                            discipline_activities = list(chain(discipline_activities, activity))
+                    dict_activities = []
+                    for discipline_activity in discipline_activities:
+                        dict_activities.append((discipline_activity,
+                                                discipline_activity.distance / discipline_activity.run_time.total_seconds()))
+                    sorted_dict = sorted(dict_activities, key=lambda tup: tup[1])
+                    points = 0
+                    duration = 0
+                    saved_activities = []
+                    for elem in sorted_dict:
+                        if duration < race_discipline.duration.total_seconds():
+                            if duration + elem[0].run_time.total_seconds() > race_discipline.duration.total_seconds():
+                                temp = race_discipline.duration.total_seconds() - duration
+                                activity_duration = elem[0].run_time.total_seconds()
+                                activity_distance = elem[0].distance
+                                duration = race_discipline.duration.total_seconds()
+                                points += (
+                                                  temp * activity_distance / activity_duration) * race_discipline.discipline.points_per_km
+                                saved_activities.append(elem[0].id)
+                                break
+                            else:
+                                duration += elem[0].run_time.total_seconds()
+                                points += (elem[0].distance * race_discipline.discipline.points_per_km)
+                                saved_activities.append(elem[0].id)
 
-                team_serializer[race_discipline.discipline.name] = {
-                    "points": points,
-                    "activities": saved_activities,
-                    "duration": duration
-                }
+                    team_serializer[race_discipline.discipline.name] = {
+                        "points": points,
+                        "activities": saved_activities,
+                        "duration": duration
+                    }
             total_points = 0
             for key, value in team_serializer.items():
                 total_points += value["points"]
@@ -873,4 +882,3 @@ def refresh_strava_token(athlete: Athlete):
         return [True, ]
     else:
         return [False, response.text]
-

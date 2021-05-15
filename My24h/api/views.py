@@ -545,7 +545,7 @@ class AthleteViewSet(mixins.ListModelMixin,
                                 duration = race_discipline.duration.total_seconds()
                                 points += (
                                                   temp * activity_distance / activity_duration) * race_discipline.discipline.points_per_km
-                                saved_activities.append(elem[0].id)
+                                saved_activities.append(elem[0].activity_id)
                                 break
                             else:
                                 duration += elem[0].run_time.total_seconds()
@@ -882,7 +882,7 @@ class TeamViewSet(mixins.ListModelMixin,
                                 duration = race_discipline.duration.total_seconds()
                                 points += (
                                                   temp * activity_distance / activity_duration) * race_discipline.discipline.points_per_km
-                                saved_activities.append(elem[0].id)
+                                saved_activities.append(elem[0].activity_id)
                                 break
                             else:
                                 duration += elem[0].run_time.total_seconds()

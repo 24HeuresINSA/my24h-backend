@@ -41,6 +41,43 @@ class RaceViewSet(mixins.ListModelMixin,
     serializer_class = RaceSerializer
     permission_classes = [AllowAny]
 
+    @action(detail=True, methods=['GET'])
+    def challenge_elevation(self, request, pk=None):
+        athletes = Athlete.objects.all()
+        elevation_points = 0
+        username = ""
+        for athlete in athletes:
+            activities = Activity.objects.filter(athlete=athlete)
+            elevation_athlete = 0
+            for activity in activities:
+                elevation_athlete += activity.positive_elevation_gain * activity.discipline.elevation_gain_coeff
+            if elevation_athlete > elevation_points:
+                username = athlete.user.username
+                elevation_points = elevation_athlete
+        return Response({
+            "username": username,
+            "elevation_points": elevation_points
+        })
+
+    @action(detail=True, methods=['GET'])
+    def challenge_duration(self, request, pk=None):
+        athletes = Athlete.objects.all()
+        duration_points = 0
+        username = ""
+        for athlete in athletes:
+            activities = Activity.objects.filter(athlete=athlete)
+            for activity in activities:
+                duration_activity = activity.run_time.total_seconds() * activity.discipline.duration_coeff
+                if duration_activity > duration_points:
+                    username = athlete.user.username
+                    duration_points = duration_activity
+        return Response({
+            "username": username,
+            "elevation_points": duration_points
+        })
+
+
+
 
 class AthleteViewSet(mixins.ListModelMixin,
                      mixins.RetrieveModelMixin,
@@ -217,7 +254,7 @@ class AthleteViewSet(mixins.ListModelMixin,
         else:
             race = athlete.team.race
         response = {}
-        disciplines = RaceDiscipline.objects.filter(race)
+        disciplines = RaceDiscipline.objects.filter(race=race)
         for discipline in disciplines:
             total_km = 0
             avg_speed = 0
@@ -235,16 +272,16 @@ class AthleteViewSet(mixins.ListModelMixin,
                 for activity in activities:
                     total_km += activity.distance
                     total_elevation += activity.positive_elevation_gain
-                    total_time += activity.run_time.time_seconds()
+                    total_time += activity.run_time.total_seconds()
                     avg_speed = (avg_speed * i + activity.avg_speed) / (i + 1)
                     if activity.distance > record_distance:
                         record_distance = activity.distance
-                    if activity.run_time.time_seconds() > record_time:
-                        record_time = activity.run_time.time_seconds()
+                    if activity.run_time.total_seconds() > record_time:
+                        record_time = activity.run_time.total_seconds()
                     if activity.positive_elevation_gain > record_elevation:
                         record_elevation = activity.positive_elevation_gain
                     if activity.avg_speed > record_avg_speed:
-                        record_elevation = activity.avg_speed
+                        record_avg_speed = activity.avg_speed
                     points += activity.distance * activity.discipline.points_per_km
                     i += 1
                 response[discip.name] = {
@@ -420,7 +457,7 @@ class AthleteViewSet(mixins.ListModelMixin,
                 return Response(status=404, data={f"Strava activity {strava_id} not found"})
             print("Hop")
             if strava_activity.athlete == athlete:
-                if strava_activity.type == "Hike" or strava_activity.type == "Walk" or  strava_activity.type == "Run":
+                if strava_activity.type == "Hike" or strava_activity.type == "Walk" or strava_activity.type == "Run":
                     print("Run")
                     discipline = Discipline.objects.get(name="Course à pied")
                 elif strava_activity.type == "Ride":
@@ -436,7 +473,7 @@ class AthleteViewSet(mixins.ListModelMixin,
                     positive_elevation_gain=strava_activity.total_elevation_gain,
                     discipline=discipline,
                     run_time=strava_activity.moving_time,
-                    avg_speed=strava_activity.distance/(strava_activity.moving_time.total_seconds()/3600 * 1000)
+                    avg_speed=strava_activity.distance / (strava_activity.moving_time.total_seconds() / 3600 * 1000)
                 )
                 print(activity.activity_id)
                 return Response(ActivitySerializer(activity, many=False).data)
@@ -465,36 +502,32 @@ class AthleteViewSet(mixins.ListModelMixin,
     @action(detail=True, methods=['POST'])
     def ranking(self, request, pk=None):
         race_id = request.POST.get("race_id")
-        category_id = request.POST.get("category_id")
         try:
-            race = Race.objects.get(race_id)
+            race = Race.objects.get(id=race_id)
         except models.ObjectDoesNotExist as e:
             return Response(status=404, data={"err": f"Race {race_id} not found"})
-        try:
-            category = Category.objects.get(id=category_id)
-        except models.ObjectDoesNotExist as e:
-            return Response(status=404, data={"err", f'Category {category_id} not found'})
         athletes = Athlete.objects.all()
         list_athletes = []
         for athlete in athletes:
             if athlete.team is not None:
-                if athlete.team.category == category and athlete.team.race == athlete:
+                if athlete.team.race == race:
                     list_athletes.append(athlete)
             else:
-                if athlete.category is not None and athlete.race is not None:
-                    if athlete.category == category and athlete.race == race:
+                if athlete.race is not None:
+                    if athlete.race == race:
                         list_athletes.append(athlete)
+        print(list_athletes)
         athletes_serializer = {}
         for athlete in list_athletes:
             activities = Activity.objects.filter(athlete=athlete)
-            race_disciplines = RaceDiscipline.objects.filter(race)
+            race_disciplines = RaceDiscipline.objects.filter(race=race)
             athlete_serializer = {}
             if activities:
                 for race_discipline in race_disciplines:
-                    discipline_activities = None
+                    discipline_activities = []
                     for activity in activities:
                         if activity.discipline == race_discipline.discipline:
-                            discipline_activities = list(chain(discipline_activities, activity))
+                            discipline_activities.append(activity)
                     dict_activities = []
                     for discipline_activity in discipline_activities:
                         dict_activities.append((discipline_activity,
@@ -517,7 +550,7 @@ class AthleteViewSet(mixins.ListModelMixin,
                             else:
                                 duration += elem[0].run_time.total_seconds()
                                 points += (elem[0].distance * race_discipline.discipline.points_per_km)
-                                saved_activities.append(elem[0].id)
+                                saved_activities.append(elem[0].activity_id)
 
                     athlete_serializer[race_discipline.discipline.name] = {
                         "points": points,
@@ -528,11 +561,18 @@ class AthleteViewSet(mixins.ListModelMixin,
                 for key, value in athlete_serializer.items():
                     total_points += value["points"]
                 athletes_serializer[athlete.id] = {
+                    "athlete_id": athlete.id,
+                    "username": athlete.user.username,
                     "total_points": total_points,
                     "details": athlete_serializer,
                 }
+        print(athletes_serializer)
         final_serializer = {k: v for k, v in
-                            sorted(athlete_serializer.items(), key=lambda item: item[1]["total_points"])}
+                            sorted(athletes_serializer.items(), key=lambda item: item[1]["total_points"])}
+        other_final_serializer = {}
+        i = 0
+        for key, value in final_serializer.items():
+            other_final_serializer[i] = value
         print(final_serializer)
         return Response(data=final_serializer)
 
@@ -590,7 +630,7 @@ class TeamViewSet(mixins.ListModelMixin,
         except models.ObjectDoesNotExist as e:
             print(e)
             return HttpResponseServerError
-        if team.members.filter(athlete).exists():
+        if team.members.filter(id=athlete.id).exists():
             athletes = team.members.all()
             disciplines = RaceDiscipline.objects.filter(race=team.race)
             response = {}
@@ -616,9 +656,9 @@ class TeamViewSet(mixins.ListModelMixin,
                         if activities:
                             for activity in activities:
                                 distance += activity.distance
-                                time += activity.run_time.time_seconds()
+                                time += activity.run_time.total_seconds()
                                 elevation += activity.positive_elevation_gain
-                                avg_speed += (avg_speed * i + activity) / (1 + i)
+                                avg_speed = (avg_speed * i + activity.avg_speed) / (1 + i)
                                 points += activity.distance * activity.discipline.points_per_km
                                 i += 1
                             if distance > record_distance:
@@ -794,12 +834,12 @@ class TeamViewSet(mixins.ListModelMixin,
         except models.ObjectDoesNotExist:
             return HttpResponseNotFound(f"Racer with id {request.POST.get('id')}")
 
-    @action(detail=True, methods=["GET"])
-    def ranking(self, request):
+    @action(detail=True, methods=["POST"])
+    def ranking(self, request, pk=None):
         race_id = request.POST.get("race_id")
         category_id = request.POST.get("category_id")
         try:
-            race = Race.objects.get(race_id)
+            race = Race.objects.get(id=race_id)
         except models.ObjectDoesNotExist as e:
             return Response(status=404, data={"err": f"Race {race_id} not found"})
         try:
@@ -810,23 +850,21 @@ class TeamViewSet(mixins.ListModelMixin,
         teams = Team.objects.filter(race=race, category=category)
         teams_serializers = {}
         for team in teams:
-            activities = None
+            activities = []
             athletes = team.members.all()
             for athlete in athletes:
                 activities_athlete = athlete.activities.all()
                 if activities_athlete:
                     activities = list(chain(activities, activities_athlete))
-                else:
-                    activities = None
             race = team.race
-            race_disciplines = RaceDiscipline.objects.filter(race)
+            race_disciplines = RaceDiscipline.objects.filter(race=race)
             team_serializer = {}
             for race_discipline in race_disciplines:
-                discipline_activities = None
+                discipline_activities = []
                 if activities:
                     for activity in activities:
                         if activity.discipline == race_discipline.discipline:
-                            discipline_activities = list(chain(discipline_activities, activity))
+                            discipline_activities.append(activity)
                     dict_activities = []
                     for discipline_activity in discipline_activities:
                         dict_activities.append((discipline_activity,
@@ -849,7 +887,7 @@ class TeamViewSet(mixins.ListModelMixin,
                             else:
                                 duration += elem[0].run_time.total_seconds()
                                 points += (elem[0].distance * race_discipline.discipline.points_per_km)
-                                saved_activities.append(elem[0].id)
+                                saved_activities.append(elem[0].activity_id)
 
                     team_serializer[race_discipline.discipline.name] = {
                         "points": points,
@@ -860,13 +898,19 @@ class TeamViewSet(mixins.ListModelMixin,
             for key, value in team_serializer.items():
                 total_points += value["points"]
             teams_serializers[team.id] = {
+                "name": team.name,
+                "team_id": team.id,
                 "total_points": total_points,
                 "details": team_serializer,
             }
         final_serializer = {k: v for k, v in
                             sorted(teams_serializers.items(), key=lambda item: item[1]["total_points"])}
-        print(final_serializer)
-        return Response(data=final_serializer)
+        other_final_serializer = {}
+        i = 1
+        for key, value in final_serializer.items():
+            other_final_serializer[i] = value
+        print(other_final_serializer)
+        return Response(data=other_final_serializer)
 
 
 @api_view(['POST'])
@@ -903,6 +947,3 @@ def refresh_tocken(request):
             }
         )
     return HttpResponseBadRequest()
-
-
-

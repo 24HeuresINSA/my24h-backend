@@ -73,7 +73,7 @@ class RaceViewSet(mixins.ListModelMixin,
                     duration_points = duration_activity
         return Response({
             "username": username,
-            "elevation_points": duration_points
+            "duration_points": duration_points
         })
 
 

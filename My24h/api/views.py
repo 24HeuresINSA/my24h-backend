@@ -574,7 +574,7 @@ class AthleteViewSet(mixins.ListModelMixin,
         for key, value in final_serializer.items():
             other_final_serializer[i] = value
         print(final_serializer)
-        return Response(data=final_serializer)
+        return Response(data=other_final_serializer)
 
 
 class TeamViewSet(mixins.ListModelMixin,

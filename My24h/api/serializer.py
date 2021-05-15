@@ -164,6 +164,7 @@ class CustomTokenRefreshSerializer(TokenRefreshSerializer):
 
 
 class StravaActivitySerializer(serializers.ModelSerializer):
+    strava_id = serializers.IntegerField()
 
     class Meta:
         model = StravaActivity

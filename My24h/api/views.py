@@ -270,11 +270,11 @@ class AthleteViewSet(mixins.ListModelMixin,
         if athlete.last_update is not None:
             if athlete.access_token_expiration_date is not None:
                 if time.time() >= athlete.access_token_expiration_date.timestamp():
-                    refresh, msg = refresh_strava_token(athlete)
+                    refresh, msg = self.refresh_strava_token(athlete)
                     if not refresh:
                         return Response(status=403, data=msg)
             else:
-                refresh, msg = refresh_strava_token(athlete)
+                refresh, msg = self.refresh_strava_token(athlete)
                 if not refresh:
                     return Response(status=403, data=msg)
             headers = {'Authorization': 'Bearer ' + athlete.access_token}
@@ -285,8 +285,8 @@ class AthleteViewSet(mixins.ListModelMixin,
             else:
                 params = {
                     "per_page": 30,
-                    # "before": 1619179200,
-                    # "after": 1618401600,
+                    "before": 1619179200,
+                    "after": 1618401600,
                 }
             response = requests.get(
                 url="https://www.strava.com/api/v3/athlete/activities",
@@ -300,7 +300,7 @@ class AthleteViewSet(mixins.ListModelMixin,
                 print("Activities", activities)
                 for activity in activities:
                     StravaActivity.objects.create(
-                        id=activity.get("id"),
+                        strava_id=activity.get("id"),
                         name=activity.get("name"),
                         type=activity.get("type"),
                         distance=activity.get("distance"),
@@ -316,11 +316,11 @@ class AthleteViewSet(mixins.ListModelMixin,
         else:
             if athlete.access_token_expiration_date is not None:
                 if time.time() >= athlete.access_token_expiration_date.timestamp():
-                    refresh, msg = refresh_strava_token(athlete)
+                    refresh, msg = self.refresh_strava_token(athlete)
                     if not refresh:
                         return Response(status=403, data=msg)
             else:
-                refresh, msg = refresh_strava_token(athlete)
+                refresh, msg = self.refresh_strava_token(athlete)
                 if not refresh:
                     return Response(status=403, data=msg)
             headers = {'Authorization': 'Bearer ' + athlete.access_token}
@@ -339,14 +339,12 @@ class AthleteViewSet(mixins.ListModelMixin,
                 headers=headers,
                 params=params
             )
-            print("Hello")
             if response.status_code < 300:
-                # athlete.last_update = now()
                 activities = response.json()
                 print("Activities", activities)
                 for activity in activities:
                     strava_activity, created = StravaActivity.objects.get_or_create(
-                        id=activity.get("id"),
+                        strava_id=activity.get("id"),
                         name=activity.get("name"),
                         type=activity.get("type"),
                         distance=activity.get("distance"),
@@ -361,41 +359,87 @@ class AthleteViewSet(mixins.ListModelMixin,
                 return Response(response.status_code)
         activities = Activity.objects.filter(athlete=athlete)
         id = []
-        for activity in activities:
-            id.append(activity.activity_id)
-        strava_activities = StravaActivity.objects.filter(athlete=athlete).exclude(id__in=id)
-        return Response(StravaActivitySerializer(strava_activities).data)
+        if activities is not None:
+            for activity in activities:
+                id.append(activity.activity_id)
+        strava_activities = StravaActivity.objects.filter(athlete=athlete).exclude(strava_id__in=id)
+        type = []
+        race = ""
+        if athlete.team is None:
+            race = athlete.race
+        else:
+            race = athlete.team.race
+        disciplines = RaceDiscipline.objects.filter(race=race)
+        for discipline in disciplines:
+            if discipline.discipline.name == "Course à pied":
+                type = ["Hike", "Walk", "Run"]
+            else:
+                type = ["Ride"]
+        strava_activities = StravaActivity.objects.filter(athlete=athlete, type__in=type).exclude(strava_id__in=id)
+        return Response(StravaActivitySerializer(strava_activities, many=True).data)
+
+    def refresh_strava_token(self, athlete: Athlete):
+        print(athlete.refresh_token)
+        data = {
+            "client_id": os.getenv("CLIENT_ID"),
+            "client_secret": os.getenv("CLIENT_SECRET"),
+            "grant_type": "refresh_token",
+            "refresh_token": athlete.refresh_token
+        }
+        response = requests.post(
+            url="https://www.strava.com/api/v3/oauth/token",
+            data=data
+        )
+        if response.status_code == 200:
+            data = response.json()
+            print(data)
+            athlete.access_token = data.get("access_token")
+            athlete.access_token_expiration_date = datetime.datetime.fromtimestamp(data.get("expires_at"))
+            athlete.refresh_token = data.get("refresh_token")
+            athlete.save()
+            return [True, ""]
+        else:
+            print(response.status_code)
+            print(response.text)
+            return [False, response.text]
 
     @action(detail=True, methods=['GET', 'POST', 'DELETE'])
     def activities(self, request, pk=None):
+        print("Hello")
         try:
             athlete = Athlete.objects.get(id=pk)
         except models.ObjectDoesNotExist:
             return HttpResponseNotFound(f"Racer with id {pk} not found")
         if request.method == 'POST':
-            strava_activity_id = request.POST.get("strava_activity_id")
+            strava_id = request.POST.get("strava_id")
             try:
-                strava_activity = StravaActivity.objects.get(strava_activity_id)
+                strava_activity = StravaActivity.objects.get(strava_id=strava_id)
+                print("Ok")
             except models.ObjectDoesNotExist as e:
                 print(e)
-                return Response(status=404, data={f"Strava activity {strava_activity_id} not found"})
+                return Response(status=404, data={f"Strava activity {strava_id} not found"})
+            print("Hop")
             if strava_activity.athlete == athlete:
-                if strava_activity.type == "Hike" or "Walk" or "Run":
+                if strava_activity.type == "Hike" or strava_activity.type == "Walk" or  strava_activity.type == "Run":
+                    print("Run")
                     discipline = Discipline.objects.get(name="Course à pied")
                 elif strava_activity.type == "Ride":
+                    print("Bike")
                     discipline = Discipline.objects.get(name="Course vélo")
                 else:
                     return HttpResponseBadRequest
                 activity, created = Activity.objects.get_or_create(
-                    activity_id=strava_activity.id,
+                    activity_id=strava_activity.strava_id,
                     athlete=Athlete.objects.get(user__id=request.user.id),
                     date=strava_activity.start_date,
                     distance=strava_activity.distance,
                     positive_elevation_gain=strava_activity.total_elevation_gain,
                     discipline=discipline,
-                    run_time=strava_activity.moving_time
+                    run_time=strava_activity.moving_time,
+                    avg_speed=strava_activity.distance/(strava_activity.moving_time.total_seconds()/3600 * 1000)
                 )
-                return Response(ActivitySerializer(activity).data)
+                print(activity.activity_id)
+                return Response(ActivitySerializer(activity, many=False).data)
             else:
                 return Response("Tentative de filouterie")
         elif request.method == 'DELETE':
@@ -861,26 +905,4 @@ def refresh_tocken(request):
     return HttpResponseBadRequest()
 
 
-def refresh_strava_token(athlete: Athlete):
-    print(athlete.refresh_token)
-    data = {
-        "client_id": os.getenv("CLIENT_ID"),
-        "client_secret": os.getenv("CLIENT_SECRET"),
-        "grant": "refresh_token",
-        "refresh": athlete.refresh_token
-    }
-    response = requests.get(
-        url="https://www.strava.com/api/v3/oauth/token",
-        data=data
-    )
-    if response.status_code == 200:
-        data = response.json()
-        athlete.access_token = data.get("access_token")
-        athlete.access_token_expiration_date = datetime.datetime.fromtimestamp(data.get("expires_at"))
-        athlete.refresh_token = data.get("refresh_token")
-        athlete.strava_id = data.get("athlete").get("id")
-        athlete.save()
-        return [True, ]
-    else:
-        print(response.text)
-        return [False, response.text]
+

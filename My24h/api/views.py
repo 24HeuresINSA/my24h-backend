@@ -462,7 +462,7 @@ class AthleteViewSet(mixins.ListModelMixin,
                     discipline = Discipline.objects.get(name="Course à pied")
                 elif strava_activity.type == "Ride":
                     print("Bike")
-                    discipline = Discipline.objects.get(name="Course vélo")
+                    discipline = Discipline.objects.get(name="Vélo")
                 else:
                     return HttpResponseBadRequest
                 activity, created = Activity.objects.get_or_create(

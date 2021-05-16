@@ -580,6 +580,7 @@ class AthleteViewSet(mixins.ListModelMixin,
         i = 1
         for sorted_athlete in sorted_athletes:
             other_final_serializer[i] = sorted_athlete[1]
+            i += 1
         return Response(data=other_final_serializer)
 
 

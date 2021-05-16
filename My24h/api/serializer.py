@@ -173,11 +173,10 @@ class StravaActivitySerializer(serializers.ModelSerializer):
 
 class ActivitySerializer(serializers.ModelSerializer):
     name = serializers.SerializerMethodField()
-    activity_id = serializers.IntegerField()
 
     class Meta:
         model = Activity
-        fields = ["activity_id", "name",  "positive_elevation_gain", "distance", "run_time"]
+        fields = ["name",  "positive_elevation_gain", "distance", "run_time"]
 
     def get_name(self, obj):
         activity = Activity.objects.get(activity_id=obj.pk)

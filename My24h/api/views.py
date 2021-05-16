@@ -336,7 +336,7 @@ class AthleteViewSet(mixins.ListModelMixin,
                 activities = response.json()
                 print("Activities", activities)
                 for activity in activities:
-                    StravaActivity.objects.create(
+                    strava_activity, created = StravaActivity.objects.get_or_create(
                         strava_id=activity.get("id"),
                         name=activity.get("name"),
                         type=activity.get("type"),

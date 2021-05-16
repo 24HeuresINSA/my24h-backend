@@ -322,8 +322,8 @@ class AthleteViewSet(mixins.ListModelMixin,
             else:
                 params = {
                     "per_page": 30,
-                    "before": 1619179200,
-                    "after": 1618401600,
+                    "before": 1621785600,
+                    "after": 1621000800,
                 }
             response = requests.get(
                 url="https://www.strava.com/api/v3/athlete/activities",
@@ -369,8 +369,8 @@ class AthleteViewSet(mixins.ListModelMixin,
             else:
                 params = {
                     "per_page": 30,
-                    "before": 1619179200,
-                    "after": 1618401600,
+                    "before": 1621785600,
+                    "after": 1621000800,
                 }
             response = requests.get(
                 url="https://www.strava.com/api/v3/athlete/activities",

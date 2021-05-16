@@ -411,9 +411,9 @@ class AthleteViewSet(mixins.ListModelMixin,
         disciplines = RaceDiscipline.objects.filter(race=race)
         for discipline in disciplines:
             if discipline.discipline.name == "Course à pied":
-                type = ["Hike", "Walk", "Run"]
+                type.extend(["Hike", "Walk", "Run"])
             else:
-                type = ["Ride"]
+                type.append("Ride")
         strava_activities = StravaActivity.objects.filter(athlete=athlete, type__in=type).exclude(strava_id__in=id)
         return Response(StravaActivitySerializer(strava_activities, many=True).data)
 

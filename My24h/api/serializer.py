@@ -173,6 +173,7 @@ class StravaActivitySerializer(serializers.ModelSerializer):
 
 class ActivitySerializer(serializers.ModelSerializer):
     name = serializers.SerializerMethodField()
+    activity_id = serializers.IntegerField()
 
     class Meta:
         model = Activity

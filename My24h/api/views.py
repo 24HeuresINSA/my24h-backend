@@ -519,7 +519,7 @@ class AthleteViewSet(mixins.ListModelMixin,
                     if athlete.race == race:
                         list_athletes.append(athlete)
         print(list_athletes)
-        athletes_serializer = {}
+        athletes_serializer = []
         for athlete in list_athletes:
             activities = Activity.objects.filter(athlete=athlete)
             race_disciplines = RaceDiscipline.objects.filter(race=race)
@@ -562,20 +562,17 @@ class AthleteViewSet(mixins.ListModelMixin,
                 total_points = 0
                 for key, value in athlete_serializer.items():
                     total_points += value["points"]
-                athletes_serializer[athlete.id] = {
+                athletes_serializer.append((total_points, {
                     "athlete_id": athlete.id,
                     "username": athlete.user.username,
                     "total_points": total_points,
                     "details": athlete_serializer,
-                }
-        print(athletes_serializer)
-        final_serializer = {k: v for k, v in
-                            sorted(athletes_serializer.items(), key=lambda item: item[1]["total_points"])}
+                }))
+        sorted_athletes = sorted(athletes_serializer, key=lambda tup: tup[0])
         other_final_serializer = {}
-        i = 0
-        for key, value in final_serializer.items():
-            other_final_serializer[i] = value
-        print(final_serializer)
+        i = 1
+        for sorted_athlete in sorted_athletes:
+            other_final_serializer[i] = sorted_athlete[1]
         return Response(data=other_final_serializer)
 
 

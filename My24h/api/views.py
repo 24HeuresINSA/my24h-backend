@@ -369,8 +369,8 @@ class AthleteViewSet(mixins.ListModelMixin,
             else:
                 params = {
                     "per_page": 30,
-                    # "before": 1619179200,
-                    # "after": 1618401600,
+                    "before": 1619179200,
+                    "after": 1618401600,
                 }
             response = requests.get(
                 url="https://www.strava.com/api/v3/athlete/activities",
@@ -499,7 +499,7 @@ class AthleteViewSet(mixins.ListModelMixin,
                 return Response(status=204, data={"succ": "Activity Deleted"})
             return False
         return Response(
-            ActivitySerializer(Activity.objects.filter(athlete=Athlete.objects.get(user__id=request.user.id))).data)
+            ActivitySerializer(Activity.objects.filter(athlete=Athlete.objects.get(user__id=request.user.id)), many=True).data, )
 
     @action(detail=True, methods=['POST'])
     def ranking(self, request, pk=None):

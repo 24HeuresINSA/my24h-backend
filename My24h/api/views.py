@@ -568,6 +568,13 @@ class AthleteViewSet(mixins.ListModelMixin,
                     "total_points": total_points,
                     "details": athlete_serializer,
                 }))
+            else:
+                athletes_serializer.append((0, {
+                    "athlete_id": athlete.id,
+                    "username": athlete.user.username,
+                    "total_points": 0,
+                    "details": None,
+                }))
         sorted_athletes = sorted(athletes_serializer, key=lambda tup: tup[0])
         other_final_serializer = {}
         i = 1

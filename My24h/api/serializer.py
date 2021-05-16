@@ -24,11 +24,18 @@ class CategoryLightSerializer(serializers.ModelSerializer):
         fields = ['id', 'name']
 
 
+class RaceLightSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Race
+        fields = ["id", "name"]
+
+
 class TeamLightSerializer(serializers.ModelSerializer):
+    race = RaceLightSerializer()
+
     class Meta:
         model = Team
-        fields = ['id', 'name']
-
+        fields = ['id', 'name', "race"]
 
 """"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 """                                                        Serializers                                               """
@@ -55,10 +62,7 @@ class RaceDisciplineSerializer(serializers.ModelSerializer):
         fields = ["discipline", "duration"]
 
 
-class RaceLightSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Race
-        fields = ["id", "name"]
+
 
 
 class RaceSerializer(serializers.ModelSerializer):

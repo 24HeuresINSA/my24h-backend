@@ -576,6 +576,7 @@ class AthleteViewSet(mixins.ListModelMixin,
                     "details": None,
                 }))
         sorted_athletes = sorted(athletes_serializer, key=lambda tup: tup[0])
+        sorted_athletes.reverse()
         other_final_serializer = {}
         i = 1
         for sorted_athlete in sorted_athletes:
@@ -855,7 +856,7 @@ class TeamViewSet(mixins.ListModelMixin,
             print(e)
             return Response(status=404, data={"err", f'Race {category_id} not found'})
         teams = Team.objects.filter(race=race, category=category)
-        teams_serializers = {}
+        teams_serializers = []
         for team in teams:
             activities = []
             athletes = team.members.all()
@@ -904,19 +905,19 @@ class TeamViewSet(mixins.ListModelMixin,
             total_points = 0
             for key, value in team_serializer.items():
                 total_points += value["points"]
-            teams_serializers[team.id] = {
+            teams_serializers.append((total_points, {
                 "name": team.name,
                 "team_id": team.id,
                 "total_points": total_points,
                 "details": team_serializer,
-            }
-        final_serializer = {k: v for k, v in
-                            sorted(teams_serializers.items(), key=lambda item: item[1]["total_points"])}
+            }))
+        sorted_teams = sorted(teams_serializers, key=lambda tup: tup[0])
+        sorted_teams.reverse()
         other_final_serializer = {}
         i = 1
-        for key, value in final_serializer.items():
-            other_final_serializer[i] = value
-        print(other_final_serializer)
+        for sorted_athlete in sorted_teams:
+            other_final_serializer[i] = sorted_athlete[1]
+            i += 1
         return Response(data=other_final_serializer)
 
 

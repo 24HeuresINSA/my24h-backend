@@ -336,17 +336,18 @@ class AthleteViewSet(mixins.ListModelMixin,
                 activities = response.json()
                 print("Activities", activities)
                 for activity in activities:
-                    strava_activity, created = StravaActivity.objects.get_or_create(
-                        strava_id=activity.get("id"),
-                        name=activity.get("name"),
-                        type=activity.get("type"),
-                        distance=activity.get("distance"),
-                        moving_time=datetime.timedelta(seconds=int(activity.get("moving_time"))),
-                        total_elevation_gain=activity.get("total_elevation_gain"),
-                        start_date=datetime.datetime.strptime(activity.get("start_date_local"),
-                                                              "%Y-%m-%dT%H:%M:%SZ"),
-                        athlete=athlete
-                    )
+                    if not StravaActivity.objects.filter(strava_id=activity.get("id")).exists():
+                        strava_activity, created = StravaActivity.objects.get_or_create(
+                            strava_id=activity.get("id"),
+                            name=activity.get("name"),
+                            type=activity.get("type"),
+                            distance=activity.get("distance"),
+                            moving_time=datetime.timedelta(seconds=int(activity.get("moving_time"))),
+                            total_elevation_gain=activity.get("total_elevation_gain"),
+                            start_date=datetime.datetime.strptime(activity.get("start_date_local"),
+                                                                  "%Y-%m-%dT%H:%M:%SZ"),
+                            athlete=athlete
+                        )
             else:
                 return Response(response.status_code)
 
@@ -380,18 +381,19 @@ class AthleteViewSet(mixins.ListModelMixin,
                 activities = response.json()
                 print("Activities", activities)
                 for activity in activities:
-                    strava_activity, created = StravaActivity.objects.get_or_create(
-                        strava_id=activity.get("id"),
-                        name=activity.get("name"),
-                        type=activity.get("type"),
-                        distance=activity.get("distance"),
-                        moving_time=datetime.timedelta(seconds=int(activity.get("moving_time"))),
-                        total_elevation_gain=activity.get("total_elevation_gain"),
-                        start_date=datetime.datetime.strptime(activity.get("start_date_local"),
-                                                              "%Y-%m-%dT%H:%M:%SZ"),
-                        athlete=athlete
-                    )
-                    print(strava_activity)
+                    if not StravaActivity.objects.filter(strava_id=activity.get("id")).exists():
+                        strava_activity, created = StravaActivity.objects.get_or_create(
+                            strava_id=activity.get("id"),
+                            name=activity.get("name"),
+                            type=activity.get("type"),
+                            distance=activity.get("distance"),
+                            moving_time=datetime.timedelta(seconds=int(activity.get("moving_time"))),
+                            total_elevation_gain=activity.get("total_elevation_gain"),
+                            start_date=datetime.datetime.strptime(activity.get("start_date_local"),
+                                                                  "%Y-%m-%dT%H:%M:%SZ"),
+                            athlete=athlete
+                        )
+                        print(strava_activity)
             else:
                 return Response(response.status_code)
         activities = Activity.objects.filter(athlete=athlete)

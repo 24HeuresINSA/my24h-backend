@@ -46,37 +46,51 @@ class RaceViewSet(mixins.ListModelMixin,
         athletes = Athlete.objects.all()
         elevation_points = 0
         username = ""
+        elevation_serializer = []
         for athlete in athletes:
             activities = Activity.objects.filter(athlete=athlete)
             elevation_athlete = 0
             for activity in activities:
                 elevation_athlete += activity.positive_elevation_gain * activity.discipline.elevation_gain_coeff
-            if elevation_athlete > elevation_points:
-                username = athlete.user.username
-                elevation_points = elevation_athlete
-        return Response({
-            "username": username,
-            "elevation_points": elevation_points
-        })
+            elevation_serializer.append((elevation_athlete, {
+                "total_elevation": elevation_athlete,
+                "username": athlete.user.username,
+                "id": athlete.id
+            }))
+        sorted_athletes = sorted(elevation_serializer, key=lambda tup: tup[0])
+        sorted_athletes.reverse()
+        other_final_serializer = {}
+        i = 1
+        for sorted_athlete in sorted_athletes:
+            other_final_serializer[i] = sorted_athlete[1]
+            i += 1
+        return Response(data=other_final_serializer)
 
     @action(detail=True, methods=['GET'])
     def challenge_duration(self, request, pk=None):
         athletes = Athlete.objects.all()
-        duration_points = 0
-        username = ""
+        duration_serializer = []
         for athlete in athletes:
+            max_duration = 0
             activities = Activity.objects.filter(athlete=athlete)
-            for activity in activities:
-                duration_activity = activity.run_time.total_seconds() * activity.discipline.duration_coeff
-                if duration_activity > duration_points:
-                    username = athlete.user.username
-                    duration_points = duration_activity
-        return Response({
-            "username": username,
-            "duration_points": duration_points
-        })
-
-
+            if activities:
+                for activity in activities:
+                    duration_activity = activity.run_time.total_seconds() * activity.discipline.duration_coeff
+                    if duration_activity > max_duration:
+                        max_duration = duration_activity
+            duration_serializer.append((max_duration, {
+                "max_duration": max_duration,
+                "username": athlete.user.username,
+                "id": athlete.id
+            }))
+        sorted_athletes = sorted(duration_serializer, key=lambda tup: tup[0])
+        sorted_athletes.reverse()
+        other_final_serializer = {}
+        i = 1
+        for sorted_athlete in sorted_athletes:
+            other_final_serializer[i] = sorted_athlete[1]
+            i += 1
+        return Response(data=other_final_serializer)
 
 
 class AthleteViewSet(mixins.ListModelMixin,
@@ -248,7 +262,6 @@ class AthleteViewSet(mixins.ListModelMixin,
         except models.ObjectDoesNotExist as e:
             print(e)
             return Response(status=400, data={"err": f"Athlete {user_id} not found."})
-
         if athlete.team is None:
             race = athlete.race
         else:
@@ -499,7 +512,8 @@ class AthleteViewSet(mixins.ListModelMixin,
                 return Response(status=204, data={"succ": "Activity Deleted"})
             return False
         return Response(
-            ActivitySerializer(Activity.objects.filter(athlete=Athlete.objects.get(user__id=request.user.id)), many=True).data, )
+            ActivitySerializer(Activity.objects.filter(athlete=Athlete.objects.get(user__id=request.user.id)),
+                               many=True).data, )
 
     @action(detail=True, methods=['POST'])
     def ranking(self, request, pk=None):
@@ -544,7 +558,7 @@ class AthleteViewSet(mixins.ListModelMixin,
                                 temp = race_discipline.duration.total_seconds() - duration
                                 activity_duration = elem[0].run_time.total_seconds()
                                 activity_distance = elem[0].distance
-                                duration = race_discipline.duration.total_seconds()
+                                duration = race_discipline.duration.total_seconds() - 1
                                 points += (
                                                   temp * activity_distance / activity_duration) * race_discipline.discipline.points_per_km
                                 saved_activities.append(elem[0].activity_id)
@@ -624,6 +638,26 @@ class TeamViewSet(mixins.ListModelMixin,
                 return HttpResponseNotFound("Error w/ parameters received")
         else:
             return HttpResponseBadRequest("Missing one or more parameters")
+
+    @action(detail=True, methods=['GET'])
+    def total_time(self, request, pk=None):
+        try:
+            team = Team.objects.get(id=pk)
+        except models.ObjectDoesNotExist as e:
+            print(e)
+            return Response(status=404, data={'err': f'Team {pk} not found'})
+        athletes = team.members.all()
+        disciplines = RaceDiscipline.objects.filter(race=team.race)
+        total_time = 0
+        if athletes:
+            for athlete in athletes:
+                activities = Activity.objects.filter(athlete=athlete, discipline=disciplines)
+                if activities:
+                    for activity in activities:
+                        total_time += activity.run_time
+        return Response({
+            "total_time": total_time
+        })
 
     @action(detail=True, methods=['GET'])
     def stat(self, request, pk=None):
@@ -887,7 +921,7 @@ class TeamViewSet(mixins.ListModelMixin,
                                 temp = race_discipline.duration.total_seconds() - duration
                                 activity_duration = elem[0].run_time.total_seconds()
                                 activity_distance = elem[0].distance
-                                duration = race_discipline.duration.total_seconds()
+                                duration = race_discipline.duration.total_seconds() - 1
                                 points += (
                                                   temp * activity_distance / activity_duration) * race_discipline.discipline.points_per_km
                                 saved_activities.append(elem[0].activity_id)

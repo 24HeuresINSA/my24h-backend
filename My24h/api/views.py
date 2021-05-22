@@ -562,12 +562,12 @@ class AthleteViewSet(mixins.ListModelMixin,
                                 duration = race_discipline.duration.total_seconds() - 1
                                 points += (
                                                       temp * activity_distance / activity_duration) * race_discipline.discipline.points_per_km
-                                saved_activities.append(saved_activities.append({"activity_id":elem[0].activity_id, "start_date": elem[0].date}))
+                                saved_activities.append({"activity_id":elem[0].activity_id, "start_date": elem[0].date})
                                 break
                             else:
                                 duration += elem[0].run_time.total_seconds()
                                 points += (elem[0].distance * race_discipline.discipline.points_per_km)
-                                saved_activities.append(elem[0].activity_id)
+                                saved_activities.append({"activity_id":elem[0].activity_id, "start_date": elem[0].date})
 
                     athlete_serializer[race_discipline.discipline.name] = {
                         "points": points,
@@ -657,7 +657,7 @@ class TeamViewSet(mixins.ListModelMixin,
                     activities = Activity.objects.filter(athlete=athlete, discipline=discipline.discipline)
                     if activities:
                         for activity in activities:
-                            total_time += activity.run_time
+                            total_time += activity.run_time.total_seconds()
         return Response({
             "total_time": total_time
         })
@@ -934,7 +934,7 @@ class TeamViewSet(mixins.ListModelMixin,
                             else:
                                 duration += elem[0].run_time.total_seconds()
                                 points += (elem[0].distance * race_discipline.discipline.points_per_km)
-                                saved_activities.append(elem[0].activity_id)
+                                saved_activities.append({"activity_id":elem[0].activity_id, "start_date": elem[0].date})
 
                     team_serializer[race_discipline.discipline.name] = {
                         "points": points,

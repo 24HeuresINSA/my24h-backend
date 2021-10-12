@@ -1,6 +1,8 @@
 .idea
 My24h/api/migrations/*
 My24h/db.sqlite3
-prod.env
-prod.db.env
+
 *.env
+*.env.*
+!.env.db.template
+!.env.template

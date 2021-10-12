@@ -40,33 +40,6 @@ services:
     env_file:
       - prod.db.env
 
-  nginx:
-    build: ./nginx
-    labels:
-      - traefik.enable=true
-      - traefik.http.routers.nginx-http.rule=Host(`api.localhost`)
-      - traefik.http.routers.nginx-http.entrypoints=web
-      - traefik.http.routers.nginx-http.middlewares=redirect
-      - traefik.http.routers.nginx-https.rule=Host(`api.localhost`) && PathPrefix(`/static/`)
-      - traefik.http.routers.nginx-https.entrypoints=websecure
-      - traefik.http.routers.nginx-https.tls=true
-      - traefik.http.routers.nginx-https.tls.certresolver=letsencrypt
-      - traefik.http.services.nginx.loadbalancer.server.port=80
-      - traefik.http.middlewares.redirect.redirectscheme.scheme=websecure
-    restart: always
-    volumes:
-      - static:/static/
-    depends_on:
-      - web
-
-  adminer:
-    image: adminer
-    restart: always
-    ports:
-      - 8080:8888
-    depends_on:
-      - db
-
 volumes:
   static:
   mariadb_data:

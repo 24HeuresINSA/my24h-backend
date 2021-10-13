@@ -48,10 +48,10 @@ class RaceDiscipline(models.Model):
 class Category(models.Model):
     name = models.CharField(max_length=50)
     label = models.TextField(max_length=500)
-    nb_participants = models.IntegerField()
+    max_participants = models.IntegerField()
 
     class Meta:
-        ordering = ["nb_participants"]
+        ordering = ["max_participants"]
         verbose_name = "Category"
         verbose_name_plural = "Categories"
 

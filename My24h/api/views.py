@@ -3,23 +3,19 @@ import requests
 import os
 import time
 
-from .serializer import *
-from .models import *
-
 from django.utils.timezone import now
 from django.db import IntegrityError
 from django.contrib.auth import authenticate
-from django.contrib.auth.models import User
-from rest_framework.decorators import api_view
 
 from rest_framework import mixins, viewsets, status
-from rest_framework.decorators import action, permission_classes
 from rest_framework.response import Response
+from rest_framework.decorators import action, permission_classes, api_view
 from rest_framework.permissions import IsAuthenticated, AllowAny
 
-from rest_framework_simplejwt.tokens import RefreshToken
-
 from drf_yasg.utils import swagger_auto_schema
+
+from .serializer import *
+from .models import *
 
 
 class CategoryViewSet(mixins.ListModelMixin,
@@ -27,6 +23,22 @@ class CategoryViewSet(mixins.ListModelMixin,
                       viewsets.GenericViewSet):
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
+    permission_classes = [AllowAny]
+    tags = ['Categories']
+
+    @swagger_auto_schema(operation_id='List categories',
+                         operation_description='List all the races availables',
+                         tags=tags,
+                         security=[])
+    def list(self, request, *args, **kwargs):
+        return super(CategoryViewSet, self).list(request=request, args=args, kwargs=kwargs)
+
+    @swagger_auto_schema(operation_id='Get category',
+                         operation_description="Retrieve information about a category",
+                         tags=tags,
+                         security=[])
+    def retrieve(self, request, *args, **kwargs):
+        return super(CategoryViewSet, self).retrieve(request=request, args=args, kwargs=kwargs)
 
 
 class RaceViewSet(mixins.ListModelMixin,
@@ -35,6 +47,21 @@ class RaceViewSet(mixins.ListModelMixin,
     queryset = Race.objects.all()
     serializer_class = RaceSerializer
     permission_classes = [AllowAny]
+    tags = ['Races']
+
+    @swagger_auto_schema(operation_id='List races',
+                         operation_description='List all the races availables.',
+                         tags=tags,
+                         security=[])
+    def list(self, request, *args, **kwargs):
+        return super(RaceViewSet, self).list(request=request, args=args, kwargs=kwargs)
+
+    @swagger_auto_schema(operation_id='Get race',
+                         operation_description="Retrieve information about a race.",
+                         tags=tags,
+                         security=[])
+    def retrieve(self, request, *args, **kwargs):
+        super(RaceViewSet, self).retrieve(request=request, args=args, kwargs=kwargs)
 
 
 class AthleteViewSet(mixins.ListModelMixin,
@@ -45,6 +72,7 @@ class AthleteViewSet(mixins.ListModelMixin,
     queryset = Athlete.objects.all()
     serializer_class = AthleteSerializer
     permission_classes = [AllowAny]
+    tags = ['Athletes']
 
     def get_permissions(self):
         if self.action == 'create':
@@ -53,10 +81,21 @@ class AthleteViewSet(mixins.ListModelMixin,
             permission_classes = [IsAuthenticated]
         return [permission() for permission in permission_classes]
 
-    def list(self, request, *args, **kwargs):
-        print(request.user.username)
-        return super(AthleteViewSet, self).list(request, *args, **kwargs)
+    @swagger_auto_schema(operation_id='Get athlete',
+                         operation_description='Retrieve information about an athlete.',
+                         tags=tags)
+    def retrieve(self, request, *args, **kwargs):
+        return super(AthleteViewSet, self).retrieve(request, *args, **kwargs)
 
+    @swagger_auto_schema(operation_id='List athletes',
+                         operation_description='List all the athletes registered.',
+                         tags=tags)
+    def list(self, request, *args, **kwargs):
+        return super(AthleteViewSet, self).retrieve(request, *args, **kwargs)
+
+    @swagger_auto_schema(operation_id='Create athlete',
+                         operation_description='Create a new athlete',
+                         tags=tags)
     def create(self, request, *args, **kwargs):
         username = request.POST.get("username")
         first_name = request.POST.get("first_name")
@@ -72,11 +111,11 @@ class AthleteViewSet(mixins.ListModelMixin,
         try:
             try:
                 race = Race.objects.get(id=race_id)
-            except models.ObjectDoesNotExist as e:
-                print(e)
+            except models.ObjectDoesNotExist:
                 return Response(status=status.HTTP_404_NOT_FOUND, data={'err': f"Race {race_id} does not exist."})
             birthday = datetime.datetime.strptime(request.POST.get("birthdate"), "%Y-%m-%d")
-            if username and first_name and last_name and email and password and birthday and address and zip_code and city and gender:
+            if username and first_name and last_name and email and password and birthday and address and zip_code \
+                    and city and gender:
                 try:
                     user = User.objects.create_user(
                         username=username,
@@ -103,8 +142,7 @@ class AthleteViewSet(mixins.ListModelMixin,
                         "access": str(refresh.access_token),
                         "refresh": str(refresh)
                     })
-                except IntegrityError as e:
-                    print(e)
+                except IntegrityError:
                     return Response(status=status.HTTP_400_BAD_REQUEST, data={'err': "Username is already used."})
             else:
                 return Response(status=status.HTTP_400_BAD_REQUEST, data={'err': "One or more parameters are missing."})
@@ -112,6 +150,9 @@ class AthleteViewSet(mixins.ListModelMixin,
             return Response(status=status.HTTP_400_BAD_REQUEST,
                             data={'err': "Birthdate should be in dd-mm-YYYY format."})
 
+    @swagger_auto_schema(operation_id='Update athlete',
+                         operation_description="Update athlete information.",
+                         tags=tags)
     def update(self, request, *args, **kwargs):
         phone = request.POST.get("phone")
         email = request.POST.get("email")
@@ -136,12 +177,20 @@ class AthleteViewSet(mixins.ListModelMixin,
         except models.ObjectDoesNotExist:
             return Response(status=status.HTTP_404_NOT_FOUND, data={'err': "Athlete not found"})
 
+    @swagger_auto_schema(operation_id='Partially update athlete',
+                         operation_description="Update an athlete user",
+                         tags=tags)
+    def partial_update(self, request, *args, **kwargs):
+        return super(AthleteViewSet, self).partial_update(request=request, args=args, kwargs=kwargs)
+
     @swagger_auto_schema(method='GET',
                          operation_id='Get profile picture',
-                         operation_description='Retrieve the profile picture of a racer')
+                         operation_description='Retrieve the profile picture of an athlete',
+                         tags=tags)
     @swagger_auto_schema(method='POST',
                          operation_id='Create profile picture',
-                         operation_description="Add a profile picture to a racer profile")
+                         operation_description="Add a profile picture to a racer profile",
+                         tags=tags)
     @action(detail=True, methods=['GET', 'POST'])
     def profile_pictures(self, request, pk=None):
         try:
@@ -153,8 +202,12 @@ class AthleteViewSet(mixins.ListModelMixin,
             racer.save()
         return Response(racer)
 
+    @swagger_auto_schema(method='POST',
+                         operation_id='Connect to Strava',
+                         operation_description="Connect to the athlete's Strava account.",
+                         tags=tags)
     @action(detail=True, methods=['POST'], permission_classes=[IsAuthenticated])
-    def strava(self, request, pk=None):
+    def strava(self, request):
         authorization_code = request.POST.get("authorization_code")
         if authorization_code:
             data = {
@@ -180,6 +233,10 @@ class AthleteViewSet(mixins.ListModelMixin,
             return Response(status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         return Response(status=status.HTTP_400_BAD_REQUEST)
 
+    @swagger_auto_schema(method='GET',
+                         operation_id='Get points',
+                         operation_description="Retrieve athlete's points",
+                         tags=tags)
     @action(detail=True, methods=['GET'])
     def point(self, request, pk=None):
         try:
@@ -188,6 +245,10 @@ class AthleteViewSet(mixins.ListModelMixin,
             return Response(status=status.HTTP_404_NOT_FOUND, data={'err': f"Racer with id {pk} not found"})
         return Response()
 
+    @swagger_auto_schema(method='GET',
+                         operation_id='List Strava activities',
+                         operation_description="Retrieve athlete's Strava activities",
+                         tags=tags)
     @action(detail=True, methods=['GET'])
     def strava_activities(self, request, pk=None):
 
@@ -230,8 +291,21 @@ class AthleteViewSet(mixins.ListModelMixin,
                 return Response(status=status.HTTP_404_NOT_FOUND, data={'err': f"Athlete {pk} not found"})
         return Response("Todo")
 
+    @swagger_auto_schema(method='GET',
+                         operation_id='Get activity',
+                         operation_description='Retrieve a saved athlete activity.',
+                         tags=tags)
+    @swagger_auto_schema(method='POST',
+                         operation_id='Saved activity',
+                         operation_description='Save a Strava activity as counting in the points count.',
+                         tags=tags)
+    @swagger_auto_schema(method='DELETE',
+                         operation_id='Delete activity',
+                         operation_description='Delete an activity from the saved activities pool. This activity could'
+                                               'be retrieve as a Strava activity.',
+                         tags=tags)
     @action(detail=True, methods=['GET', 'POST', 'DELETE'])
-    def activites(self, request, pk=None):
+    def activities(self, request, pk=None):
         try:
             racer = Athlete.objects.get(id=pk)
         except models.ObjectDoesNotExist:
@@ -242,6 +316,10 @@ class AthleteViewSet(mixins.ListModelMixin,
             return False
         return Response()
 
+    @swagger_auto_schema(method='GET',
+                         operation_id='Get ranking',
+                         operation_description='Allow an athlete to retrieve his/her rank.',
+                         tags=tags)
     @action(detail=True, methods=['GET'])
     def ranking(self, request, pk=None):
         # Todo: reparation
@@ -256,10 +334,25 @@ class TeamViewSet(mixins.ListModelMixin,
     queryset = Team.objects.all()
     serializer_class = TeamSerializer
     permission_classes = [IsAuthenticated]
+    tags = ["Teams"]
 
+    @swagger_auto_schema(operation_id='List teams',
+                         operation_description='Retrieve the list of all the teams registered',
+                         tags=tags)
+    def list(self, request, *args, **kwargs):
+        return super(TeamViewSet, self).list(request=request, args=args,  kwargs=kwargs)
+
+    @swagger_auto_schema(operation_id='Get team',
+                         operation_description="Retrieve team's information.",
+                         tags=tags)
+    def retrieve(self, request, *args, **kwargs):
+        return super(TeamViewSet, self).retrieve(request=request, args=args, kwargs=kwargs)
+
+    @swagger_auto_schema(operation_id='Create team',
+                         operation_description="Create a new team.",
+                         tags=tags)
     def create(self, request, *args, **kwargs):
         user_id = request.user.id
-        print(user_id, request.user.username)
         name = request.POST.get("name")
         join_code = request.POST.get("join_code")
         race_id = request.POST.get("race_id")
@@ -281,13 +374,17 @@ class TeamViewSet(mixins.ListModelMixin,
                     team.save()
                     athlete.save()
                     return Response(TeamSerializer(team).data)
-                return Response(status=status.HTTP_400_BAD_REQUEST, data={'err': "This athlete is already member of a team"})
+                return Response(status=status.HTTP_400_BAD_REQUEST,
+                                data={'err': "This athlete is already member of a team"})
             except models.ObjectDoesNotExist as e:
                 print(e)
                 return Response(status=status.HTTP_404_NOT_FOUND, data={'err': "Error w/ parameters received"})
         else:
-            return Response(status=status.HTTP_400_BAD_REQUEST, data={'err':"Missing one or more parameters"})
+            return Response(status=status.HTTP_400_BAD_REQUEST, data={'err': "Missing one or more parameters"})
 
+    @swagger_auto_schema(operation_id='Delete team',
+                         operation_description='Delete a team',
+                         tags=tags)
     def destroy(self, request, *args, **kwargs):
         user_id = request.user.id
         try:
@@ -301,7 +398,11 @@ class TeamViewSet(mixins.ListModelMixin,
         except models.ObjectDoesNotExist as e:
             return Response("Error")
 
-    @action(detail=True, methods=['POST'])
+    @swagger_auto_schema(method='PUT',
+                         operation_id='Update join code',
+                         operation_description="Update team's join code.",
+                         tags=tags)
+    @action(detail=True, methods=['PUT'])
     def join_codes(self, request, pk=None):
         user_id = request.user.id
         try:
@@ -311,16 +412,27 @@ class TeamViewSet(mixins.ListModelMixin,
         try:
             athlete = Athlete.objects.get(user__id=user_id)
         except models.ObjectDoesNotExist:
-            return Response(status=status.HTTP_404_NOT_FOUND, data={'err': f"Athlete with id {request.POST.get('racer_id')} not found"})
+            return Response(status=status.HTTP_404_NOT_FOUND,
+                            data={'err': f"Athlete with id {request.POST.get('racer_id')} not found"})
         if athlete.admin is not None:
             if athlete.admin.id == team.id:
                 team.join_code = request.POST.get("join_code")
                 team.save()
                 return Response("Join code successfully updated")
             else:
-                return Response(status=status.HTTP_400_BAD_REQUEST, data={'err': f"Athlete with id {athlete.id} does not have enough rights."})
-        return Response(status=status.HTTP_403_FORBIDDEN, data={'err': f"Athlete must be an admin of the team to change join code"})
+                return Response(status=status.HTTP_400_BAD_REQUEST,
+                                data={'err': f"Athlete with id {athlete.id} does not have enough rights."})
+        return Response(status=status.HTTP_403_FORBIDDEN,
+                        data={'err': f"Athlete must be an admin of the team to change join code"})
 
+    @swagger_auto_schema(method='GET',
+                         operation_id='Get members',
+                         operation_description="Retrieve team's members",
+                         tags=tags)
+    @swagger_auto_schema(method='DELETE',
+                         operation_id='Delete member',
+                         operation_description="Allow a team's admin to remove a member of his/her team.",
+                         tags=tags)
     @action(detail=True, methods=['GET', 'DELETE'])
     def members(self, request, pk=None):
         try:
@@ -333,7 +445,8 @@ class TeamViewSet(mixins.ListModelMixin,
                 admin = Athlete.objects.get(user__id=user_id)
                 athlete = Athlete.objects.get(id=request.POST.get("athlete_id"))
             except models.ObjectDoesNotExist:
-                return Response(status=status.HTTP_404_NOT_FOUND, data={'err': f"Racer with id {request.POST.get('racer_id')} not found."})
+                return Response(status=status.HTTP_404_NOT_FOUND,
+                                data={'err': f"Racer with id {request.POST.get('racer_id')} not found."})
             if athlete != admin:
                 if admin.admin is not None:
                     if admin.admin.id == team.id:
@@ -343,6 +456,10 @@ class TeamViewSet(mixins.ListModelMixin,
                                 athlete.save()
         return Response(TeamSerializer(team).data)
 
+    @swagger_auto_schema(method='POST',
+                         operation_id='Join team',
+                         operation_description="Allow an athlete to join a team by providing a join code",
+                         tags=tags)
     @action(detail=True, methods=['POST'])
     def join(self, request, pk=None):
         user_id = request.user.id
@@ -363,16 +480,24 @@ class TeamViewSet(mixins.ListModelMixin,
                         athlete.save()
                         return Response(TeamSerializer(team).data)
                     else:
-                        return Response(status=status.HTTP_400_BAD_REQUEST, data={'err': f"Racer with id {user_id} is already a member of the team {team.id}"} )
+                        return Response(status=status.HTTP_400_BAD_REQUEST, data={
+                            'err': f"Racer with id {user_id} is already a member of the team {team.id}"})
                 else:
                     athlete.team = team
                     athlete.save()
                     return Response(TeamSerializer(team).data)
             else:
-                return Response(status=status.HTTP_400_BAD_REQUEST, data={'err': f"The team with id {team.id} has already reach its maximal capacity"})
+                return Response(status=status.HTTP_400_BAD_REQUEST,
+                                data={'err': f"The team with id {team.id} has already reach its maximal capacity"})
         else:
             return Response(status=status.HTTP_403_FORBIDDEN, data={'err': f"Wrong join code"})
 
+    @swagger_auto_schema(method='POST',
+                         operation_id='Leave team',
+                         operation_description="Allow an athlete to leave a team by him/herself. If the athlete leaving"
+                                               "is the only admin of the team, the admin role is transferred to a "
+                                               "random member of the team.",
+                         tags=tags)
     @action(detail=True, methods=["POST"])
     def leave(self, request, pk=None):
         user_id = request.user.id
@@ -402,6 +527,18 @@ class TeamViewSet(mixins.ListModelMixin,
             print(e)
             return Response(status=status.HTTP_404_NOT_FOUND, data={'err': "Team or athlete not found."})
 
+    @swagger_auto_schema(method='GET',
+                         operation_id="List team admins",
+                         operation_description="List the team's admin",
+                         tags=tags)
+    @swagger_auto_schema(method='POST',
+                         operation_id='Add team admin',
+                         operation_description='Allow an admin to add a new admin to the team.',
+                         tags=tags)
+    @swagger_auto_schema(method='DELETE',
+                         operation_id='Remove team admin',
+                         operation_description='Allow a team admin to remove another admin of his/her team.',
+                         tags=tags)
     @action(detail=True, methods=["GET", "POST", "DELETE"])
     def admin(self, request, pk=None):
         user_id = request.user.id
@@ -418,8 +555,9 @@ class TeamViewSet(mixins.ListModelMixin,
                         athlete.admin = team
                         athlete.save()
                     else:
-                        return Response(status=status.HTTP_400_BAD_REQUEST, data={'err': f"Racer with id {athlete.id} cannot be an admin: he/she is not a member of"
-                            f" the team"})
+                        return Response(status=status.HTTP_400_BAD_REQUEST, data={
+                            'err': f"Racer with id {athlete.id} cannot be an admin: he/she is not a member of"
+                                   f" the team"})
 
                 if request.method == 'DELETE':
                     if athlete.admin.id == team.id and admin.admin.id == team.id:
@@ -427,15 +565,18 @@ class TeamViewSet(mixins.ListModelMixin,
                             athlete.admin = None
                             athlete.save()
                         else:
-                            return Response(status=status.HTTP_400_BAD_REQUEST, data={'err': "A team must have an administrator"})
+                            return Response(status=status.HTTP_400_BAD_REQUEST,
+                                            data={'err': "A team must have an administrator"})
                     else:
                         return Response(status=status.HTTP_400_BAD_REQUEST)
                 return Response(TeamSerializer(team).data)
         except models.ObjectDoesNotExist:
             return Response(status=status.HTTP_404_NOT_FOUND, data={'err': f"Racer with id {request.POST.get('id')}"})
 
+    @swagger_auto_schema(method='GET',
+                         tags=tags)
     @action(detail=True, methods=["GET"])
-    def ranking(self, request, pk=None):
+    def ranking(self, request):
         # Todo: reparation
         teams = Team.objects.all()
         serializer = TeamRankingSerializer(teams, many=True)
@@ -443,6 +584,10 @@ class TeamViewSet(mixins.ListModelMixin,
         return Response("En cours de réparation")
 
 
+@swagger_auto_schema(method='POST',
+                     operation_id='Get tokens',
+                     operation_description='Retrieve a pair of access/refresh JWT token.',
+                     tags=['Tokens'])
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def access_token(request):
@@ -464,6 +609,10 @@ def access_token(request):
     return Response(status=status.HTTP_400_BAD_REQUEST)
 
 
+@swagger_auto_schema(method='POST',
+                     operation_id='Refresh tokens',
+                     operation_description='Refresh the access token by providing a valid refresh token.',
+                     tags=['Tokens'])
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def refresh_tocken(request):

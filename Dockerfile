@@ -1,12 +1,12 @@
-FROM python:3.9
+FROM python:3.9-slim-buster
 
-RUN pip install --upgrade pip
+RUN pip install --no-cache-dir --upgrade pip
 
 COPY ./Pipfile .
 COPY ./Pipfile.lock .
 
-RUN pip install pipenv
-RUN pipenv install --system
+RUN pip install --no-cache-dir pipenv
+RUN pipenv install --no-cache-dir --system
 
 COPY ./My24h /app
 

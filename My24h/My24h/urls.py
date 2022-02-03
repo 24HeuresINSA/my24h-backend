@@ -20,22 +20,24 @@ from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
 
 schema_view = get_schema_view(
-   openapi.Info(
-      title="My24h Api",
-      default_version='v1',
-      description="",
-      contact=openapi.Contact(email="courses@24heures.org"),
-      license=openapi.License(name="BSD License"),
-   ),
-   public=True,
-   permission_classes=[permissions.AllowAny],
+    openapi.Info(
+        title="My24h Api",
+        default_version='v1',
+        description="",
+        contact=openapi.Contact(email="courses@24heures.org"),
+        license=openapi.License(name="BSD License"),
+    ),
+    public=True,
+    permission_classes=[permissions.AllowAny],
 )
 
 urlpatterns = [
     path('My24h/admin/', admin.site.urls),
     path('My24h/api/', include('api.urls')),
-    path('My24h/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
-    path('My24h/redoc/', schema_view.with_ui('redoc', cache_timeout=0), name='schema-redoc'),
-    re_path(r'^swagger(?P<format>\.json|\.yaml)$', schema_view.without_ui(cache_timeout=0), name='schema-json'),
-
+    path('My24h/', schema_view.with_ui('swagger',
+         cache_timeout=0), name='schema-swagger-ui'),
+    path('My24h/redoc/', schema_view.with_ui('redoc',
+         cache_timeout=0), name='schema-redoc'),
+    re_path(r'^swagger(?P<format>\.json|\.yaml)$',
+            schema_view.without_ui(cache_timeout=0), name='schema-json')
 ]

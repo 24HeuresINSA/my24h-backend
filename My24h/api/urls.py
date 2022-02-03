@@ -1,6 +1,5 @@
 from django.urls import include, path
 from rest_framework import routers
-from rest_framework_simplejwt import views as jwt_views
 from django.contrib.auth import views as auth_views
 from . import views
 

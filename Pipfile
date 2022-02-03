@@ -7,7 +7,6 @@ name = "pypi"
 djangorestframework = "*"
 django = "*"
 requests = "*"
-drf-yasg = {extras = ["validation"], version = "*"}
 pillow = "*"
 mysqlclient = "*"
 gunicorn = "*"
@@ -15,8 +14,13 @@ djangorestframework-simplejwt = "*"
 django-cryptography = "*"
 sentry-sdk = "*"
 whitenoise = "*"
+flake8 = "*"
 
 [dev-packages]
 
 [requires]
-python_version = "3.9"
+python_version = "3.8"
+
+[packages.drf-yasg]
+extras = [ "validation",]
+version = "*"

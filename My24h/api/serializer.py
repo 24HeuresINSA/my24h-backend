@@ -1,6 +1,6 @@
-from django.contrib.auth.models import User, Group
+from django.contrib.auth.models import User
 from rest_framework import serializers
-from .models import *
+from .models import Athlete, Category, Team, Discipline, RaceDiscipline, Race
 from rest_framework_simplejwt.serializers import TokenObtainSerializer, TokenRefreshSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 
@@ -137,7 +137,6 @@ class AthleteRankingSerializer(serializers.ModelSerializer):
         fields = ["id", "username", "points"]
 
 
-
 class CustomTokenObtainPairSerializer(TokenObtainSerializer):
 
     @classmethod
@@ -151,7 +150,7 @@ class CustomTokenObtainPairSerializer(TokenObtainSerializer):
         refresh = self.get_token(self.user)
         data['lifetime'] = int(refresh.access_token.lifetime.total_seconds())
         return data
-    
+
 
 class CustomTokenRefreshSerializer(TokenRefreshSerializer):
 
@@ -160,6 +159,3 @@ class CustomTokenRefreshSerializer(TokenRefreshSerializer):
         refresh = RefreshToken(attrs['refresh'])
         data['lifetime'] = int(refresh.access_token.lifetime.total_seconds)
         return data
-
-
-

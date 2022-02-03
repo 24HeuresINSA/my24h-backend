@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import *
+from .models import Category, Race, Athlete, Activity, Team, Discipline, RaceDiscipline
 
 
 @admin.register(Category)
@@ -30,6 +30,7 @@ class TeamAdmin(admin.ModelAdmin):
 @admin.register(Discipline)
 class DisciplineAdmin(admin.ModelAdmin):
     pass
+
 
 @admin.register(RaceDiscipline)
 class RaceDisciplineAdmin(admin.ModelAdmin):

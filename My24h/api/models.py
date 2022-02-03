@@ -3,8 +3,6 @@ from datetime import timedelta
 from django.contrib.auth.models import User
 from django.utils import timezone
 
-from django_cryptography.fields import encrypt
-
 
 class Discipline(models.Model):
     name = models.CharField(max_length=30)
@@ -85,9 +83,9 @@ class Athlete(models.Model):
     phone = models.CharField(max_length=20, null=True)
     image = models.ImageField(null=True)
     strava_id = models.IntegerField(null=True)
-    access_token = encrypt(models.CharField(max_length=800, null=True))
-    access_token_expiration_date = encrypt(models.DateTimeField(null=True))
-    refresh_token = encrypt(models.CharField(max_length=800, null=True))
+    access_token = models.CharField(max_length=800, null=True)
+    access_token_expiration_date = models.DateTimeField(null=True)
+    refresh_token = models.CharField(max_length=800, null=True)
     last_update = models.DateTimeField(null=True)
     race = models.ForeignKey(Race, default=None, null=True, related_name="race", on_delete=models.SET_NULL)
     category = models.ForeignKey(Category, default=None, null=True, related_name="category", on_delete=models.SET_NULL)

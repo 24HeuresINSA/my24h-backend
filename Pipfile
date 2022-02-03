@@ -5,13 +5,12 @@ name = "pypi"
 
 [packages]
 djangorestframework = "*"
-django = "*"
+Django = "*"
 requests = "*"
-pillow = "*"
+Pillow = "*"
 mysqlclient = "*"
 gunicorn = "*"
 djangorestframework-simplejwt = "*"
-django-cryptography = "*"
 whitenoise = "*"
 flake8 = "*"
 

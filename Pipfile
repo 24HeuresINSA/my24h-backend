@@ -12,7 +12,6 @@ mysqlclient = "*"
 gunicorn = "*"
 djangorestframework-simplejwt = "*"
 django-cryptography = "*"
-sentry-sdk = "*"
 whitenoise = "*"
 flake8 = "*"
 
